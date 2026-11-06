@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+*.vsix
+.vscode-test/
+.DS_Store
+vault/.obsidian/workspace*.json
+vault/.obsidian/cache
+vault/.trash/
+
+spikes/*/work/
+.claude/settings.local.json

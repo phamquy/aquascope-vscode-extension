@@ -1,0 +1,45 @@
+filters:
+  and:
+    - file.inFolder("tasks")
+properties:
+  note.id:
+    displayName: ID
+  note.status:
+    displayName: Status
+  note.priority:
+    displayName: Priority
+  note.feature:
+    displayName: Feature
+views:
+  - type: table
+    name: All tasks
+    order:
+      - id
+      - file.name
+      - status
+      - priority
+      - feature
+    sort:
+      - property: id
+        direction: ASC
+    columnSize:
+      file.name: 541
+  - type: table
+    name: In progress
+    filters:
+      or:
+        - note.status == "doing"
+        - note.status == "review"
+    order:
+      - id
+      - file.name
+      - status
+  - type: table
+    name: Backlog
+    filters:
+      and:
+        - note.status == "todo"
+    order:
+      - id
+      - file.name
+      - priority
