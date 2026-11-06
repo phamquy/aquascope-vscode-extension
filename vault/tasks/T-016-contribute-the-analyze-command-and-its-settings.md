@@ -1,7 +1,7 @@
 ---
 id: T-016
 title: "Contribute the analyze command and its settings"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-06
