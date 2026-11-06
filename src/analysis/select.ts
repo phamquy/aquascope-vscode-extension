@@ -1,4 +1,5 @@
 // Parses the tool's output and selects the body at the cursor (R7).
+import { forEachPosition } from './positions';
 import type { AnalysisOutput, AquascopeEntry, CharPos, CharRange } from './types';
 
 /** A VS Code position: zero-based line, column in UTF-16 code units. */
@@ -68,18 +69,9 @@ function convertColumns(root: unknown, source: string): void {
   const wide = new Set<number>();
   lines.forEach((text, i) => /[\uD800-\uDFFF]/.test(text) && wide.add(i));
   if (wide.size === 0) return;
-  const visit = (node: unknown): void => {
-    if (Array.isArray(node)) return node.forEach(visit);
-    if (typeof node !== 'object' || node === null) return;
-    const obj = node as Record<string, unknown>;
-    const keys = Object.keys(obj);
-    if (keys.length === 2 && typeof obj.line === 'number' && typeof obj.column === 'number') {
-      if (wide.has(obj.line)) obj.column = utf16Column(lines[obj.line], obj.column);
-      return;
-    }
-    for (const key of keys) visit(obj[key]);
-  };
-  visit(root);
+  forEachPosition(root, (pos) => {
+    if (wide.has(pos.line)) pos.column = utf16Column(lines[pos.line], pos.column);
+  });
 }
 
 function utf16Column(text: string, column: number): number {
