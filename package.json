@@ -22,8 +22,20 @@
       {
         "command": "aquascope.hello",
         "title": "Aquascope: Hello"
+      },
+      {
+        "command": "aquascope.analyzeAtCursor",
+        "title": "Aquascope: Analyze Function at Cursor"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "aquascope.analyzeAtCursor",
+          "when": "editorLangId == rust"
+        }
+      ]
+    },
     "configuration": {
       "title": "Aquascope",
       "properties": {
@@ -31,6 +43,18 @@
           "type": "boolean",
           "default": true,
           "description": "Enable Aquascope."
+        },
+        "aquascope.toolchainPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "Folder holding the Aquascope tools and the pinned Rust toolchain: `bin/cargo-aquascope`, `bin/aquascope-driver` and `toolchain/`. Leave empty to use the copy shipped with the extension. Read from user settings only, so a workspace cannot point the extension at other programs."
+        },
+        "aquascope.analysisTimeoutSeconds": {
+          "type": "integer",
+          "default": 60,
+          "minimum": 5,
+          "markdownDescription": "Seconds an analysis may run before it is stopped. The run can also be cancelled from its progress notification."
         }
       }
     }
@@ -43,7 +67,8 @@
     "test": "npm run compile && tsc -p tsconfig.test.json && node out/test/runTest.js",
     "package": "vsce package --no-dependencies",
     "vscode:prepublish": "node esbuild.mjs --production",
-    "task": "node scripts/task.mjs"
+    "task": "node scripts/task.mjs",
+    "dev-bundle": "node scripts/dev-bundle.mjs"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
