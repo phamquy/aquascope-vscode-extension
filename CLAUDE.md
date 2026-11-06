@@ -8,7 +8,8 @@ A VS Code extension, built spec-first with AI assistance. Everything needed to w
 2. Every feature lives in `specs/features/NNN-slug/` with `spec.md` (what/why), `plan.md` (how), and `tasks.md` (ordered checklist). Copy from `specs/_templates/`.
 3. Do not write implementation code for a feature until its `spec.md` is status `approved`. If the code and the spec disagree, fix the spec first, then the code.
 4. Each task in `tasks.md` has a matching note in `vault/tasks/` (Obsidian). The note is the source of truth for status. Update its `status` frontmatter as you work: `todo` -> `doing` -> `review` -> `done`.
-5. Record significant design choices as an ADR in `docs/adr/`.
+5. Each task is one pull request into `main`, so the history has one reviewed unit per task. Start from an up-to-date `main` on a branch named `task/T-NNN-slug`, commit the task as one commit whose subject ends with the task id, push, and open the PR with `gh pr create`; the note is `review` while the PR is open. Once the user approves, set the note to `done` on the branch, push, and merge with `gh pr merge --squash --delete-branch`.
+6. Record significant design choices as an ADR in `docs/adr/`.
 
 ## Task tracking
 
