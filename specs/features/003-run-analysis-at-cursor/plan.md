@@ -68,7 +68,7 @@ Every module gets tests in the existing mocha suite, and the integration tests i
 
 | Module | Requirements | Decides | Tested by |
 | --- | --- | --- | --- |
-| `toolchain.ts` | R3, R4, R5 | Root from setting or `extensionUri/aquascope`; checks `bin/cargo-aquascope` and `toolchain/bin/cargo` exist; builds env from a copy of `process.env` (pure function of env and platform) | Unit: env per platform, removal and override list, missing tool |
+| `toolchain.ts` | R3, R4, R5 | Root from setting (no fallback when set) or `extensionUri/aquascope`; checks `bin/cargo-aquascope`, `bin/aquascope-driver` and `toolchain/bin/cargo` exist; builds env from a copy of `process.env` (pure function of env and platform) | Unit: env per platform, removal and override list, missing tool |
 | `scratchCrate.ts` | R2, R9 | Nearest `Cargo.toml` edition with workspace inheritance, default 2024; writes `Cargo.toml` (`[workspace]`, no deps) and `src/lib.rs`; deletes older runs | Unit: edition cases on temporary dirs; crate contents; cleanup |
 | `runner.ts` | R8, R11 | Spawns `<root>/toolchain/bin/cargo aquascope permissions` (and, for R10, `cargo check --message-format=json`) in the crate dir as a process group; collects stdout and stderr; kills the group on cancel or timeout; logs command, env delta, duration, exit code, and stderr on failure or its size on success | Unit: kill on timeout using a `sleep` child; manual AC8 |
 | `select.ts` | R7 | Parses `{Ok}` / `{Err}` entries; converts char columns to UTF-16; picks the innermost containing body; reports "no function at cursor" | Unit: spike JSON for fixture 05 (three bodies), nesting, non-ASCII line |
