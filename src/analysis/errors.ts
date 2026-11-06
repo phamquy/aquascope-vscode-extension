@@ -1,0 +1,88 @@
+// Turns failed runs and build errors into the actionable messages of R10.
+import type { RunOutcome } from './runner';
+import type { AnalyzeErrorCode, CharRange } from './types';
+
+export interface Failure {
+  code: AnalyzeErrorCode;
+  message: string;
+}
+
+/** Codes meaning the file needs a module or crate that a single-file crate cannot provide (D6, R10). */
+export const SINGLE_FILE_LIMIT_CODES = ['E0432', 'E0433', 'E0463', 'E0583'];
+
+/** One compiler error from `cargo check --message-format=json`. */
+export interface CompilerError {
+  code: string | undefined;
+  message: string;
+  /** The compiler's own human-readable text, written to the output channel. */
+  rendered: string;
+}
+
+/** The errors in cargo's JSON message stream; warnings, notes and non-compiler lines are skipped. */
+export function parseCompilerErrors(stdout: string): CompilerError[] {
+  const errors: CompilerError[] = [];
+  for (const line of stdout.split('\n')) {
+    if (!line.startsWith('{')) continue;
+    try {
+      const msg = JSON.parse(line) as {
+        reason?: string;
+        message?: { level?: string; message?: string; code?: { code?: string } | null; rendered?: string | null };
+      };
+      const m = msg.message;
+      if (msg.reason !== 'compiler-message' || m?.level !== 'error') continue;
+      errors.push({ code: m.code?.code, message: m.message ?? '', rendered: m.rendered ?? m.message ?? '' });
+    } catch {
+      // Not a JSON line; cargo only writes JSON here, so ignore anything else.
+    }
+  }
+  return errors;
+}
+
+/**
+ * Explains why no body could be analysed at the cursor when the analysis reported build errors:
+ * the single-file limit when any error is one of its codes, otherwise compile errors (R10).
+ */
+export function classifyBuildErrors(buildErrors: (CharRange | null)[], errors: CompilerError[]): Failure {
+  const names = unique(
+    errors
+      .filter((e) => e.code !== undefined && SINGLE_FILE_LIMIT_CODES.includes(e.code))
+      .map((e) => /`([^`]+)`/.exec(e.message)?.[1])
+      .filter((name): name is string => Boolean(name)),
+  );
+  if (names.length > 0) {
+    const list = names.map((n) => `\`${n}\``).join(', ');
+    return {
+      code: 'singleFileLimit',
+      message:
+        `The file uses ${list}, which a single file cannot provide: this version analyses the file on its own, ` +
+        'without its other modules or its dependencies. If a name is misspelt instead, correct it and run again.',
+    };
+  }
+  const lines = unique(buildErrors.flatMap((r) => (r ? [r.start.line + 1] : []))).sort((a, b) => a - b);
+  const where = lines.length === 0 ? '' : ` (${lines.length === 1 ? 'function at line' : 'functions at lines'} ${lines.join(', ')})`;
+  return {
+    code: 'compileErrors',
+    message: `The function at the cursor could not be analysed because the file has compile errors${where}. The compiler's messages are in the Aquascope output.`,
+  };
+}
+
+/** Explains a run that did not finish with exit code 0 (R8, R10). */
+export function runFailure(outcome: RunOutcome, what: string, timeoutSeconds: number): Failure {
+  switch (outcome.kind) {
+    case 'timeout':
+      return {
+        code: 'timeout',
+        message: `The analysis was stopped after ${timeoutSeconds} s. Run it again, or raise \`aquascope.analysisTimeoutSeconds\`.`,
+      };
+    case 'cancelled':
+      return { code: 'cancelled', message: 'The analysis was cancelled.' };
+    case 'spawnError':
+      return { code: 'toolFailed', message: `${what} could not be started (${outcome.error?.message ?? 'unknown error'}).` };
+    default:
+      return { code: 'toolFailed', message: `${what} failed with exit code ${outcome.exitCode}. The details are in the Aquascope output.` };
+  }
+}
+
+function unique<T>(items: T[]): T[] {
+  return [...new Set(items)];
+}
