@@ -1,7 +1,7 @@
 ---
 id: T-025
 title: "Build the panel page and settle Q1"
-status: review
+status: done
 priority: medium
 feature: "004-render-visualization-webview"
 created: 2026-11-06
