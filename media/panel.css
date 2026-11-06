@@ -7,3 +7,20 @@ body {
   font-family: var(--vscode-font-family);
   color: var(--vscode-foreground);
 }
+
+/*
+ * Keep the embed's wide layout at every width (spec D6). Below 800 px its stylesheet moves each step
+ * table onto its own line, which a panel beside the editor nearly always is; there the arrow lands at
+ * the start of the next line and the table covers it. These rules restore the wide values, so each
+ * table sits after its line with the arrow pointing at the line's end, and a narrow panel scrolls.
+ */
+.aquascope .perm-step-widget {
+  display: inline-block;
+  top: 0.75em;
+  margin-bottom: 0.75em;
+  margin-left: 0;
+}
+
+.aquascope .perm-step-widget .step-widget-spacer {
+  max-width: none;
+}

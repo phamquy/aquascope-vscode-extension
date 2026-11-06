@@ -24,7 +24,7 @@ D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06;
 - D3: The embed's configuration is exactly `{stepper: true, boundaries: true}`, with no `shouldFail` and no annotations. `shouldFail` would add the Book's "does not compile" image, which is not among the embed's files, and without annotations every step table starts expanded rather than focused on chosen variables.
 - D4: No new settings. The panel opens automatically and has nothing to configure, so constitution principle 4 is met by documenting it in the README.
 - D5 (was Q2): The code in the panel is not syntax-coloured in this version. The embed tags tokens with highlight.js classes but ships no colours for them, and mapping them to each theme is extra work that the diagrams do not need; the diagrams keep their own colours.
-- D6 (was Q3): The embed's narrow layout is accepted. Below 800 pixels of width it places each step table under its line instead of beside it, as the Book does on narrow screens, and the breakpoint is not overridden.
+- D6 (was Q3, revised on 2026-11-06 after trying the panel): The embed's wide layout is kept at every width: each step table sits after its line, at the same height, with the arrow pointing at the line's end, and a narrow panel scrolls sideways, as Aquascope's own playground does. The embed's stylesheet instead moves each table under its line below 800 pixels, which a panel beside the editor nearly always is. Tried in the panel, that put the arrow at the start of the next line with the table covering it, so the panel's stylesheet overrides that breakpoint.
 - D7 (was Q1, settled by T-025 on 2026-11-06): The embed runs unchanged under the policy `default-src 'none'; script-src <webview>; style-src <webview> 'unsafe-inline'; img-src data:`. Rendering four captured results in a real webview reported no policy violation and no script error, with the expected step widgets and boundary markers. Without `'unsafe-inline'`, every render reports blocked inline style elements and style attributes, so it is needed; `data:` images cover an SVG filter in the embed's stylesheet. The embed declares no fonts and the policy allows no requests.
 
 ### User stories
@@ -60,6 +60,7 @@ D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06;
 - [ ] AC9: In the Dark Modern and Light Modern themes, the code, step tables and permission letters are readable and missing permissions are distinguishable from held ones (checked by hand).
 - [ ] AC10: The vendored embed folder holds the origin note and the MIT licence, and `vsce ls` lists the embed files.
 - [ ] AC11: Integration tests cover AC1, AC2, AC3 and AC5 and pass in `npm test`.
+- [ ] AC12: In a panel narrower than 800 pixels, each step table sits after its line, at the same height, with the arrow pointing at the line's end, and the panel scrolls sideways to show it (checked by hand; D6).
 
 ## Out of scope
 
