@@ -1,7 +1,19 @@
-// Runs in the Aquascope panel, before the embed (feature 004, R10). It reports what the page shows to
-// the extension, which is the only way tests can see inside a webview, together with any content
-// security policy violation or script error, which is how Q1 was settled.
+// Runs in the Aquascope panel, before the embed (feature 004). It follows VS Code's theme (R7), and it
+// reports what the page shows to the extension, which is the only way tests can see inside a webview,
+// together with any content security policy violation or script error, which is how Q1 was settled (R10).
 (function () {
+  // The embed's light and dark variants hang off mdBook's theme classes on the root element; VS Code
+  // marks its theme on the body, and changes that class when the user switches theme.
+  const theme = () => {
+    const body = document.body.classList;
+    const dark = body.contains('vscode-dark') || (body.contains('vscode-high-contrast') && !body.contains('vscode-high-contrast-light'));
+    document.documentElement.classList.toggle('coal', dark);
+    document.documentElement.classList.toggle('light', !dark);
+    return dark ? 'dark' : 'light';
+  };
+  theme();
+  new MutationObserver(theme).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
   const vscode = acquireVsCodeApi();
   const renderId = Number(document.body.dataset.renderId);
   const problems = [];
@@ -13,7 +25,7 @@
 
   if (document.body.dataset.kind === 'message') {
     const text = document.querySelector('.aquascope-message')?.textContent ?? '';
-    window.addEventListener('load', () => vscode.postMessage({ type: 'message', renderId, text, problems }));
+    window.addEventListener('load', () => vscode.postMessage({ type: 'message', renderId, text, theme: theme(), problems }));
     return;
   }
 
@@ -47,7 +59,7 @@
     sent = true;
     observer.disconnect();
     clearTimeout(fallback);
-    vscode.postMessage({ type: 'rendered', renderId, code, ...counts(), problems });
+    vscode.postMessage({ type: 'rendered', renderId, code, ...counts(), theme: theme(), problems });
   };
   observer.observe(document.body, { childList: true, subtree: true });
   window.addEventListener('load', () => {

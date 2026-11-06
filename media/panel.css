@@ -1,4 +1,5 @@
-/* The Aquascope panel's own styles (feature 004). T-027 adds the theme mapping (R7). */
+/* The Aquascope panel's own styles (feature 004): VS Code's theme mapped onto the embed (R7), and its
+   wide layout kept at every width (D6). Loaded after the embed's stylesheet. */
 body {
   padding: 0.5em 1em;
 }
@@ -6,6 +7,41 @@ body {
 .aquascope-message {
   font-family: var(--vscode-font-family);
   color: var(--vscode-foreground);
+}
+
+/*
+ * The embed takes its colours from mdBook's theme variables, which a webview does not have; these
+ * supply them from VS Code's theme. Its permission colours (read, write, own) are its own, and
+ * media/panel.js puts mdBook's `light` or `coal` class on the page so that the embed's own light and
+ * dark variants of them apply.
+ */
+:root {
+  --fg: var(--vscode-editor-foreground);
+  --bg: var(--vscode-editor-background);
+  /* Step tables: background, text, borders, and the arrow from each line to its table. */
+  --sidebar-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  --sidebar-fg: var(--vscode-editorWidget-foreground, var(--vscode-editor-foreground));
+  --table-header-bg: var(--vscode-editorWidget-border, var(--vscode-widget-border, var(--vscode-panel-border)));
+  --searchresults-header-fg: var(--vscode-descriptionForeground);
+  /* The frame around the code, and the embed's buttons and pop-ups. */
+  --theme-popup-border: var(--vscode-editorWidget-border, var(--vscode-widget-border, var(--vscode-panel-border)));
+  --theme-popup-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  --theme-hover: var(--vscode-list-hoverBackground);
+  --icons: var(--vscode-icon-foreground);
+  --icons-hover: var(--vscode-foreground);
+  --sidebar-active: var(--vscode-textLink-foreground);
+}
+
+/* The embed gives code mdBook's code-block colour per theme; use the editor's background instead. */
+html.light,
+html.coal {
+  --code-bg: var(--vscode-editor-background);
+}
+
+/* The code in the editor's font, not the embed's "Source Code Pro". */
+.aquascope .cm-editor .cm-content {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
 }
 
 /*
