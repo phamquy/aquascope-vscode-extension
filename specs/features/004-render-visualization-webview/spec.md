@@ -1,7 +1,7 @@
 ---
 id: 004-render-visualization-webview
 title: Render the visualization in a webview
-status: draft
+status: approved
 ---
 # Render the visualization in a webview
 
@@ -17,12 +17,14 @@ The panel opens on its own after every successful run and replaces 003's interim
 
 ## Decisions
 
-Proposed in this draft; approving the spec confirms them.
+D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06; D5 and D6 settle two of the draft's open questions.
 
 - D1: The embed's built files (`embed.iife.js` and `style.css`) are vendored from the published `mdbook-aquascope` 0.4.0 crate, which matches the pinned tag; no frontend build is added (spike 002, Q6 and Appendix I).
 - D2: The panel shows the selected body's whole lines only. The embed receives a one-element list holding 003's selected result with line numbers shifted so that the first shown line is line 0. The Book's `hidden_lines` mechanism is not used, because it would add a button that reveals the rest of the file.
 - D3: The embed's configuration is exactly `{stepper: true, boundaries: true}`, with no `shouldFail` and no annotations. `shouldFail` would add the Book's "does not compile" image, which is not among the embed's files, and without annotations every step table starts expanded rather than focused on chosen variables.
 - D4: No new settings. The panel opens automatically and has nothing to configure, so constitution principle 4 is met by documenting it in the README.
+- D5 (was Q2): The code in the panel is not syntax-coloured in this version. The embed tags tokens with highlight.js classes but ships no colours for them, and mapping them to each theme is extra work that the diagrams do not need; the diagrams keep their own colours.
+- D6 (was Q3): The embed's narrow layout is accepted. Below 800 pixels of width it places each step table under its line instead of beside it, as the Book does on narrow screens, and the breakpoint is not overridden.
 
 ### User stories
 
@@ -73,8 +75,6 @@ Proposed in this draft; approving the spec confirms them.
 ## Open questions
 
 - Q1: Does the embed run unchanged under the policy in R6? CodeMirror and Font Awesome insert style elements at run time, which R6 allows; anything else it needs, such as fonts or `eval`, is unknown until it is tried.
-- Q2: Should the code in the panel be syntax-coloured? The embed tags tokens with highlight.js class names (`hljs-*`) but ships no colours for them, since the Book's page supplies those. Without them the code is drawn in one colour; with them the stylesheet must map the classes to colours for each theme.
-- Q3: Is the narrow layout acceptable? Below 800 pixels of width the embed places each step table under its line instead of beside it, and a panel beside the editor is often narrower than that. The alternative is to override that breakpoint in the panel's stylesheet.
 
 ## Appendix A: Aquascope's embed frontend at v0.4.0
 
