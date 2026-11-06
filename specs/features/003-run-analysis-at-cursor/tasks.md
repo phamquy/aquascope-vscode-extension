@@ -13,7 +13,7 @@ Each line maps to a note in `vault/tasks/`. Status lives in the note, not here.
 - [x] T-017 Resolve the toolchain and build the run environment (done when: unit tests cover R3 to R5)
 - [x] T-018 Write the temporary single-file crate (done when: unit tests cover edition detection, crate contents and cleanup; R2, R9)
 - [x] T-019 Run cargo aquascope with progress, cancel, timeout and logging (done when: process group killed on cancel and timeout, runs logged, AC8 tested against the dev bundle; R8, R11)
-- [ ] T-020 Parse the output and select the body at the cursor (done when: unit tests cover fixture 05's three bodies, nesting, no body and a non-ASCII line; R7)
+- [x] T-020 Parse the output and select the body at the cursor (done when: unit tests cover fixture 05's three bodies, nesting, no body and a non-ASCII line; R7)
 - [ ] T-021 Classify failures, show the summary and wire the command (done when: captured diagnostics map to each R10 category and the command works end to end; R10, R13)
 - [ ] T-022 Integration tests for the acceptance criteria (done when: AC1 to AC7 and AC9 pass in `npm test`, AC8 and AC11 recorded, spec criteria ticked)
 

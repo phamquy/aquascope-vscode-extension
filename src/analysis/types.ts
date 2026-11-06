@@ -27,7 +27,11 @@ export type AnalyzeErrorCode =
   /** Any other failure; the details are in the output channel. */
   | 'toolFailed';
 
-/** What `aquascope.analyzeAtCursor` returns. */
+/**
+ * What `aquascope.analyzeAtCursor` returns. Every position in `output` is a VS Code position of the
+ * analysed text: zero-based lines and columns in UTF-16 code units, converted from Aquascope's
+ * character columns (R7).
+ */
 export type AnalyzeResult =
   | { kind: 'ok'; output: AnalysisOutput }
   | { kind: 'error'; code: AnalyzeErrorCode; message: string };
