@@ -1,7 +1,7 @@
 ---
 id: T-021
 title: "Classify failures, show the summary and wire the command"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-06

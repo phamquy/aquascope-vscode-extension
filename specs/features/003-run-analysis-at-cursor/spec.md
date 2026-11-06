@@ -53,16 +53,16 @@ Recorded 2026-11-06 from the T-013 experiment (Appendix B).
 
 ## Acceptance criteria
 
-- [ ] AC1: With `aquascope.toolchainPath` pointing at the spike 002 trimmed bundle, running the command with the cursor inside `main` of each spike 002 program fixture returns an `Ok` result whose range contains the cursor, in under 10 seconds on darwin-arm64.
-- [ ] AC2: For the borrow-check failure fixture (`04_push_while_borrowed_fail`), the command returns the permission analysis, not a build error.
-- [ ] AC3: For the method fixture (`05_method_mut_borrow`), the cursor inside `grow`, `area` and `main` selects each of those three bodies respectively.
-- [ ] AC4: With the cursor outside any function, the command reports that and shows no stale result.
-- [ ] AC5: An unsaved edit is analysed: after changing a fixture in the editor without saving, the result reflects the edited text.
-- [ ] AC6: With the cursor in a function that uses a module declared by `mod other;` or an external crate such as `rand`, the command produces the single-file limit message naming the module or crate, not a raw compiler error; a function in a file with an unresolved `use serde::Serialize;` that does not itself depend on it is still analysed.
-- [ ] AC7: With no tool at either location, the message names the `aquascope.toolchainPath` setting.
+- [x] AC1: With `aquascope.toolchainPath` pointing at the spike 002 trimmed bundle, running the command with the cursor inside `main` of each spike 002 program fixture returns an `Ok` result whose range contains the cursor, in under 10 seconds on darwin-arm64.
+- [x] AC2: For the borrow-check failure fixture (`04_push_while_borrowed_fail`), the command returns the permission analysis, not a build error.
+- [x] AC3: For the method fixture (`05_method_mut_borrow`), the cursor inside `grow`, `area` and `main` selects each of those three bodies respectively.
+- [x] AC4: With the cursor outside any function, the command reports that and shows no stale result.
+- [x] AC5: An unsaved edit is analysed: after changing a fixture in the editor without saving, the result reflects the edited text.
+- [x] AC6: With the cursor in a function that uses a module declared by `mod other;` or an external crate such as `rand`, the command produces the single-file limit message naming the module or crate, not a raw compiler error; a function in a file with an unresolved `use serde::Serialize;` that does not itself depend on it is still analysed.
+- [x] AC7: With no tool at either location, the message names the `aquascope.toolchainPath` setting.
 - [ ] AC8: Cancelling a run, or a run exceeding the timeout, leaves no `cargo-aquascope`, `cargo` or `aquascope-driver` process running.
-- [ ] AC9: A run writes nothing outside the extension's storage: the workspace folder is unchanged afterwards.
-- [ ] AC10: Integration tests cover AC1 to AC7 and AC9, compare results without depending on order, and pass in `npm test`.
+- [x] AC9: A run writes nothing outside the extension's storage: the workspace folder is unchanged afterwards.
+- [x] AC10: Integration tests cover AC1 to AC7 and AC9, compare results without depending on order, and pass in `npm test`.
 - [ ] AC11: Both settings appear in VS Code's settings UI with descriptions, and the README documents them.
 
 ## Out of scope
