@@ -1,0 +1,60 @@
+{
+  "name": "aquascope-vscode-extension",
+  "displayName": "Aquascope",
+  "description": "VS Code extension for Aquascope.",
+  "version": "0.0.1",
+  "publisher": "jackpham",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/phamquy/aquascope-vscode-extension.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aquascope.hello",
+        "title": "Aquascope: Hello"
+      }
+    ],
+    "configuration": {
+      "title": "Aquascope",
+      "properties": {
+        "aquascope.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Aquascope."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "npm run compile && tsc -p tsconfig.test.json && node out/test/runTest.js",
+    "package": "vsce package --no-dependencies",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "task": "node scripts/task.mjs"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.0.0",
+    "mocha": "^10.4.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}
