@@ -18,31 +18,39 @@
   }
 
   // Read before the embed starts: it renames the element's class once it has taken the data.
-  const code = JSON.parse(document.querySelector('.aquascope-embed').dataset.code);
+  const embed = document.querySelector('.aquascope-embed');
+  const code = JSON.parse(embed.dataset.code);
+  const [entry] = JSON.parse(embed.dataset.responses).permissions;
+  // What the embed should draw: one step widget per step, and one marker per distinct boundary location.
+  const expected = entry.Ok
+    ? {
+        stepWidgets: entry.Ok.steps.length,
+        boundaryMarkers: new Set(entry.Ok.boundaries.map((b) => `${b.location.line}:${b.location.column}`)).size,
+      }
+    : { stepWidgets: 0, boundaryMarkers: 0 };
   const counts = () => ({
-    // One per entry in the result's steps; React fills them in shortly after the embed starts.
     stepWidgets: document.querySelectorAll('.perm-step-widget').length,
-    // One per distinct boundary location.
     boundaryMarkers: document.querySelectorAll('.permission-stack').length,
   });
 
-  // The embed draws on the same load event, after this listener; wait until the counts stop changing.
+  // The embed draws on load, and React fills in the step widgets shortly after, so report as soon as the
+  // page holds what it should. Timers are throttled to about one a second while the window is in the
+  // background, so the timer only bounds a page that never matches, and then reports what it has.
+  let sent = false;
+  let fallback;
+  const observer = new MutationObserver(() => {
+    const now = counts();
+    if (now.stepWidgets === expected.stepWidgets && now.boundaryMarkers === expected.boundaryMarkers) send();
+  });
+  const send = () => {
+    if (sent) return;
+    sent = true;
+    observer.disconnect();
+    clearTimeout(fallback);
+    vscode.postMessage({ type: 'rendered', renderId, code, ...counts(), problems });
+  };
+  observer.observe(document.body, { childList: true, subtree: true });
   window.addEventListener('load', () => {
-    let last = '';
-    let unchanged = 0;
-    let checks = 0;
-    const check = () => {
-      const now = counts();
-      const key = JSON.stringify(now);
-      unchanged = key === last ? unchanged + 1 : 0;
-      last = key;
-      checks += 1;
-      if (unchanged >= 5 || checks >= 100) {
-        vscode.postMessage({ type: 'rendered', renderId, code, ...now, problems });
-      } else {
-        setTimeout(check, 30);
-      }
-    };
-    setTimeout(check, 0);
+    fallback = setTimeout(send, 3000);
   });
 })();
