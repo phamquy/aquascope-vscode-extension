@@ -1,7 +1,7 @@
 ---
 id: T-023
 title: "Vendor the embed from the mdbook-aquascope 0.4.0 crate"
-status: review
+status: done
 priority: medium
 feature: "004-render-visualization-webview"
 created: 2026-11-06
