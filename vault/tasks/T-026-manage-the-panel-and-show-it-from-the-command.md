@@ -1,7 +1,7 @@
 ---
 id: T-026
 title: "Manage the panel and show it from the command"
-status: review
+status: done
 priority: medium
 feature: "004-render-visualization-webview"
 created: 2026-11-06
