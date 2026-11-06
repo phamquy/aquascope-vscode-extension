@@ -1,7 +1,7 @@
 ---
 id: T-024
 title: "Shape the embed's input from the analysis result"
-status: review
+status: done
 priority: medium
 feature: "004-render-visualization-webview"
 created: 2026-11-06
