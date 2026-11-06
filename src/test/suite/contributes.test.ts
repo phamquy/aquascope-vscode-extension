@@ -1,0 +1,58 @@
+import * as assert from 'assert';
+import * as path from 'path';
+import { readFileSync } from 'fs';
+import * as vscode from 'vscode';
+import type { AnalyzeResult } from '../../analysis/types';
+
+const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const COMMAND = 'aquascope.analyzeAtCursor';
+const SETTINGS = ['aquascope.toolchainPath', 'aquascope.analysisTimeoutSeconds'];
+
+interface Contributes {
+  commands: { command: string; title: string }[];
+  menus: { commandPalette: { command: string; when?: string }[] };
+  configuration: { properties: Record<string, { default: unknown; scope?: string; markdownDescription?: string }> };
+}
+
+suite('analyze command contributions (R1, R14)', () => {
+  let ext: vscode.Extension<unknown>;
+  let contributes: Contributes;
+
+  suiteSetup(async () => {
+    const found = vscode.extensions.getExtension(EXTENSION_ID);
+    assert.ok(found, `extension ${EXTENSION_ID} not found`);
+    ext = found;
+    contributes = ext.packageJSON.contributes as Contributes;
+    await ext.activate();
+  });
+
+  test('declares the command, shown in the palette for Rust files only', () => {
+    const command = contributes.commands.find((c) => c.command === COMMAND);
+    assert.strictEqual(command?.title, 'Aquascope: Analyze Function at Cursor');
+    const palette = contributes.menus.commandPalette.find((m) => m.command === COMMAND);
+    assert.strictEqual(palette?.when, 'editorLangId == rust');
+  });
+
+  test('registers the command', async () => {
+    assert.ok((await vscode.commands.getCommands(true)).includes(COMMAND));
+  });
+
+  test('declares both settings with descriptions and defaults', () => {
+    const props = contributes.configuration.properties;
+    for (const key of SETTINGS) assert.ok(props[key]?.markdownDescription, `${key} has no description`);
+    assert.strictEqual(props['aquascope.toolchainPath'].default, '');
+    assert.strictEqual(props['aquascope.toolchainPath'].scope, 'machine');
+    assert.strictEqual(vscode.workspace.getConfiguration('aquascope').get('analysisTimeoutSeconds'), 60);
+  });
+
+  test('documents both settings in the README', () => {
+    const readme = readFileSync(path.join(ext.extensionPath, 'README.md'), 'utf8');
+    for (const key of SETTINGS) assert.ok(readme.includes(`\`${key}\``), `README does not mention ${key}`);
+  });
+
+  test('without a Rust editor, says so instead of running', async () => {
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    const result = await vscode.commands.executeCommand<AnalyzeResult>(COMMAND);
+    assert.deepStrictEqual(result.kind === 'error' && result.code, 'noRustEditor');
+  });
+});
