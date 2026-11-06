@@ -19,6 +19,7 @@ A VS Code extension, built spec-first with AI assistance. Everything needed to w
 - `npm run compile` / `npm run watch` bundle with esbuild into `dist/`
 - `npm run typecheck`, `npm run lint`, `npm test`
 - `npm run package` builds the `.vsix`
+- `npm run dev-bundle` links spike 002's build into a toolchain bundle for the end-to-end tests (see `scripts/dev-bundle.mjs`)
 - F5 in VS Code launches the Extension Development Host
 
 ## Layout
