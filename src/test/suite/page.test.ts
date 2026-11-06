@@ -31,6 +31,7 @@ function dataAttr(html: string, name: string): string | undefined {
 interface Report {
   type: 'rendered' | 'message';
   renderId: number;
+  theme: 'light' | 'dark';
   code?: string;
   text?: string;
   stepWidgets?: number;
@@ -59,6 +60,23 @@ async function render(content: PageContent): Promise<Report> {
   } finally {
     panel.dispose();
   }
+}
+
+/** The theme the page should follow for VS Code's active colour theme. */
+const vscodeTheme = (): 'light' | 'dark' =>
+  [vscode.ColorThemeKind.Dark, vscode.ColorThemeKind.HighContrast].includes(vscode.window.activeColorTheme.kind) ? 'dark' : 'light';
+
+/** Switches VS Code's colour theme and waits until it is active. */
+async function useColorTheme(name: string | undefined): Promise<void> {
+  const changed = new Promise<void>((resolve) => {
+    const sub = vscode.window.onDidChangeActiveColorTheme(() => {
+      sub.dispose();
+      resolve();
+    });
+    setTimeout(resolve, 3000); // the theme may already be the active one
+  });
+  await vscode.workspace.getConfiguration('workbench').update('colorTheme', name, vscode.ConfigurationTarget.Global);
+  await changed;
 }
 
 const distinctBoundaries = (input: EmbedInput): number => {
@@ -128,6 +146,21 @@ suite('panel page in a real webview (004 Q1, R10)', function () {
 
   test('shows a message', async () => {
     const report = await render({ kind: 'message', text: 'There is no function at the cursor.' });
-    assert.deepStrictEqual(report, { type: 'message', renderId: 7, text: 'There is no function at the cursor.', problems: [] });
+    assert.deepStrictEqual(report, { type: 'message', renderId: 7, text: 'There is no function at the cursor.', theme: vscodeTheme(), problems: [] });
+  });
+
+  test("follows VS Code's light and dark themes", async () => {
+    const original = vscode.workspace.getConfiguration('workbench').inspect<string>('colorTheme')?.globalValue;
+    try {
+      for (const [name, expected] of [['Default Light Modern', 'light'], ['Default Dark Modern', 'dark']] as const) {
+        await useColorTheme(name);
+        assert.strictEqual(vscodeTheme(), expected, `VS Code did not switch to ${name}`);
+        const report = await render({ kind: 'analysis', input: inputAt('05_method_mut_borrow', 18, 4) });
+        assert.strictEqual(report.theme, expected, name);
+        assert.deepStrictEqual(report.problems, []);
+      }
+    } finally {
+      await useColorTheme(original);
+    }
   });
 });

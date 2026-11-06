@@ -8,8 +8,8 @@ export const VIEW_TYPE = 'aquascope.visualization';
 
 /** What the page reports once it has drawn (R10); posted by `media/panel.js`. */
 export type PanelReport =
-  | { type: 'rendered'; renderId: number; code: string; stepWidgets: number; boundaryMarkers: number; problems: string[] }
-  | { type: 'message'; renderId: number; text: string; problems: string[] };
+  | { type: 'rendered'; renderId: number; code: string; stepWidgets: number; boundaryMarkers: number; theme: 'light' | 'dark'; problems: string[] }
+  | { type: 'message'; renderId: number; text: string; theme: 'light' | 'dark'; problems: string[] };
 
 /**
  * Owns at most one webview panel. The extension holds one instance; tests create their own. The first
