@@ -14,7 +14,7 @@ Each line maps to a note in `vault/tasks/`. Status lives in the note, not here.
 - [x] T-018 Write the temporary single-file crate (done when: unit tests cover edition detection, crate contents and cleanup; R2, R9)
 - [x] T-019 Run cargo aquascope with progress, cancel, timeout and logging (done when: process group killed on cancel and timeout, runs logged, AC8 tested against the dev bundle; R8, R11)
 - [x] T-020 Parse the output and select the body at the cursor (done when: unit tests cover fixture 05's three bodies, nesting, no body and a non-ASCII line; R7)
-- [ ] T-021 Classify failures, show the summary and wire the command (done when: captured diagnostics map to each R10 category and the command works end to end; R10, R13)
+- [x] T-021 Classify failures, show the summary and wire the command (done when: captured diagnostics map to each R10 category and the command works end to end; R10, R13)
 - [ ] T-022 Integration tests for the acceptance criteria (done when: AC1 to AC7 and AC9 pass in `npm test`, AC8 and AC11 recorded, spec criteria ticked)
 
 T-013 comes first because its answers set the runner's flag strategy and the R10 error samples. T-014 and T-015 are independent of each other and can run in either order after it. T-016 to T-020 each build one module and need only T-015's harness; T-021 joins them, and T-022 comes last.
