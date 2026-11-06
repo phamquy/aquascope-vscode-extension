@@ -13,6 +13,6 @@ Spec: [[specs/features/004-render-visualization-webview/spec.md]]
 
 ## Done when
 
-- [ ] AC1, AC2, AC3, AC5 and the automated part of AC7 pass in `npm test`, AC4 and AC6 to AC10 are recorded, and the spec's criteria are ticked
+- [ ] AC1, AC2, AC3, AC5 and the automated part of AC7 pass in `npm test`, AC4, AC6 to AC10 and AC12 are recorded, and the spec's criteria are ticked
 
 ## Notes

@@ -92,7 +92,7 @@ The panel tests create their own panel manager and render captured results from 
 | `embedInput.ts` | R3, R4 (title), D2 | Shown lines (whole lines of `body_range`), line shift of every position, one-element response, out-of-range guard, title | Unit, captured data |
 | `page.ts` | R2, R6, R9, D3 | HTML with the embed element, escaped attributes, resource URIs, the policy; message mode | Unit |
 | `media/panel.js` | R7, R10 | Theme class from VS Code's theme; report of code, step widgets, boundary markers and policy violations; message report | Panel tests |
-| `media/panel.css` | R7 | mdBook variables from VS Code variables; editor font | By hand (AC9) |
+| `media/panel.css` | R7, D6 | mdBook variables from VS Code variables; editor font; the wide layout at every width | By hand (AC9, AC12) |
 | `panel.ts` | R1, R4, R5 | Single panel, beside the editor, reveal without focus, dispose, latest report and waiters | Panel and acceptance tests |
 | `command.ts` (`report`) | R1, R5 | Success shows the panel; errors notify and update an open panel; `noRustEditor` and `cancelled` do not | Acceptance tests |
 
@@ -111,6 +111,7 @@ The panel tests create their own panel manager and render captured results from 
 | AC9 | By hand: Dark Modern and Light Modern |
 | AC10 | `media/aquascope-embed/` holds `LICENSE` and `README.md`; `npx @vscode/vsce ls` lists the embed files |
 | AC11 | AC1, AC2, AC3 and AC5 in `npm test` |
+| AC12 | By hand: a panel narrower than 800 px shows each table after its line with the arrow at the line's end; `media/panel.css` overrides the embed's 800 px breakpoint (D6) |
 
 ## Appendix C: page outline
 

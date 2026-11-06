@@ -1,4 +1,5 @@
-// The `aquascope.analyzeAtCursor` command (R1, R13): analyses the function at the cursor and reports it.
+// The `aquascope.analyzeAtCursor` command (R1): analyses the function at the cursor and shows the result in
+// the Aquascope panel (feature 004, R1 and R5).
 import * as vscode from 'vscode';
 import { classifyBuildErrors, Failure, parseCompilerErrors, runFailure } from './errors';
 import { outputChannel, run, withProgress } from './runner';
@@ -6,6 +7,7 @@ import { detectEdition, writeCrate } from './scratchCrate';
 import { selectAtCursor, Cursor } from './select';
 import { resolveToolchain, runEnvironment } from './toolchain';
 import type { AnalysisOutput, AnalyzeErrorCode, AnalyzeResult } from './types';
+import type { VisualizationPanel } from '../visualization/panel';
 
 const DEFAULT_TIMEOUT_SECONDS = 60;
 /** Codes whose details are in the output channel, so their message offers to show it. */
@@ -14,14 +16,14 @@ const WITH_DETAILS: AnalyzeErrorCode[] = ['singleFileLimit', 'compileErrors', 't
 /** The run in progress; a new run cancels it, so only the latest cursor position is analysed. */
 let inFlight: vscode.CancellationTokenSource | undefined;
 
-export async function analyzeAtCursor(context: vscode.ExtensionContext): Promise<AnalyzeResult> {
+export async function analyzeAtCursor(context: vscode.ExtensionContext, panel: VisualizationPanel): Promise<AnalyzeResult> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'rust') {
-    return report(error('noRustEditor', 'Open a Rust file and put the cursor inside a function, then run "Aquascope: Analyze Function at Cursor".'));
+    return report(error('noRustEditor', 'Open a Rust file and put the cursor inside a function, then run "Aquascope: Analyze Function at Cursor".'), panel);
   }
   const config = vscode.workspace.getConfiguration('aquascope');
   const toolchain = resolveToolchain(config.get<string>('toolchainPath'), context.extensionPath);
-  if (!toolchain.ok) return report(error('toolNotFound', toolchain.message));
+  if (!toolchain.ok) return report(error('toolNotFound', toolchain.message), panel);
   const timeout = config.get<number>('analysisTimeoutSeconds');
 
   // Take the text and cursor now, so edits made while the tool runs cannot shift the positions (R2, R7).
@@ -44,7 +46,7 @@ export async function analyzeAtCursor(context: vscode.ExtensionContext): Promise
       const forward = progress.onCancellationRequested(() => cancel.cancel());
       return analyze(job, cancel.token).finally(() => forward.dispose());
     });
-    return report(result);
+    return report(result, panel, job.source);
   } finally {
     if (inFlight === cancel) inFlight = undefined;
     cancel.dispose();
@@ -104,27 +106,33 @@ async function analyze(job: Job, token: vscode.CancellationToken): Promise<Analy
 
 const error = (code: AnalyzeErrorCode, message: string): AnalyzeResult => ({ kind: 'error', code, message });
 const failed = (f: Failure): AnalyzeResult => error(f.code, f.message);
-const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 function describe(output: AnalysisOutput): string {
   const { start, end } = output.body_range;
   return `the function at lines ${start.line + 1}–${end.line + 1}`;
 }
 
-/** Shows the outcome to the user (R10, R13) and returns it unchanged, for the tests and feature 004 (R12). */
-function report(result: AnalyzeResult): AnalyzeResult {
-  const show = (choice: string | undefined): void => {
-    if (choice) outputChannel().show(true);
-  };
+/**
+ * Shows the outcome (003 R10, 004 R1 and R5) and returns it unchanged, for the tests and later features
+ * (R12). An analysis goes to the panel; an error is a notification and also replaces the diagram in an
+ * open panel, except when the user cancelled or no Rust editor was active, which leave the panel as it was.
+ */
+function report(result: AnalyzeResult, panel: VisualizationPanel, source?: string): AnalyzeResult {
   if (result.kind === 'ok') {
-    const { steps, boundaries } = result.output;
-    const counts = `${count(steps.length, 'permission step', 'permission steps')}, ${count(boundaries.length, 'boundary', 'boundaries')}`;
-    void vscode.window.showInformationMessage(`Aquascope: analysed ${describe(result.output)}: ${counts}.`, 'Show Output').then(show);
+    if (source !== undefined) panel.showAnalysis(result.output, source);
     return result;
   }
-  if (result.code !== 'noRustEditor') outputChannel().appendLine(`  result: ${result.code}: ${result.message}`);
-  if (result.code === 'cancelled') return result; // The user asked for it; no message needed.
+  if (result.code === 'noRustEditor') {
+    // Nothing was analysed, so the panel keeps its last result.
+    void vscode.window.showErrorMessage(`Aquascope: ${result.message}`);
+    return result;
+  }
+  outputChannel().appendLine(`  result: ${result.code}: ${result.message}`);
+  if (result.code === 'cancelled') return result; // The user asked for it, or a newer run replaced it.
+  panel.showMessage(result.message);
   const actions = WITH_DETAILS.includes(result.code) ? ['Show Output'] : [];
-  void vscode.window.showErrorMessage(`Aquascope: ${result.message}`, ...actions).then(show);
+  void vscode.window.showErrorMessage(`Aquascope: ${result.message}`, ...actions).then((choice) => {
+    if (choice) outputChannel().show(true);
+  });
   return result;
 }
