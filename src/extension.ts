@@ -6,7 +6,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aquascope.hello', () => {
       void vscode.window.showInformationMessage('Hello from Aquascope');
     }),
-    vscode.commands.registerCommand('aquascope.analyzeAtCursor', analyzeAtCursor),
+    vscode.commands.registerCommand('aquascope.analyzeAtCursor', () => analyzeAtCursor(context)),
   );
 }
 

@@ -32,7 +32,7 @@ Tests run inside the existing VS Code test instance. Pure-module tests use JSON 
 
 - `package.json`: command, palette menu entry and the two settings.
 - `README.md`: the command and both settings.
-- `src/extension.ts`: registers the command; the handler module is imported on first use.
+- `src/extension.ts`: registers the command. The handler is imported directly: esbuild bundles everything into one 22 KB file, so a deferred import would save nothing at activation.
 - `src/analysis/`: `command.ts`, `toolchain.ts`, `scratchCrate.ts`, `runner.ts`, `select.ts`, `errors.ts`, `types.ts`, and `bindings/` with the generated Aquascope types and their provenance note.
 - `src/test/suite/`: one test file per module plus `analyze.test.ts` for the end-to-end criteria.
 - `src/test/fixtures/workspace/`: the spike 002 programs and the T-013 error and non-ASCII fixtures; `src/test/fixtures/data/`: captured analysis JSON and `cargo check` diagnostics.
