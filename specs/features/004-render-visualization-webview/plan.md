@@ -116,7 +116,7 @@ The panel tests create their own panel manager and render captured results from 
 
 ```html
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src ${cspSource}; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; img-src ${cspSource} data:">
+      content="default-src 'none'; script-src ${cspSource}; style-src ${cspSource} 'unsafe-inline'; img-src data:">
 <link rel="stylesheet" href="${media}/aquascope-embed/style.css">
 <link rel="stylesheet" href="${media}/panel.css">
 <div class="aquascope-embed"
@@ -129,4 +129,4 @@ The panel tests create their own panel manager and render captured results from 
 <script src="${media}/aquascope-embed/embed.iife.js"></script>
 ```
 
-The `font-src` and `img-src` entries are a starting point. T-025 narrows or widens them according to the violations it finds.
+T-025 settled this policy (spec D7): inline styles are required, `data:` images cover an SVG filter in the embed's stylesheet, and the embed needs no fonts.
