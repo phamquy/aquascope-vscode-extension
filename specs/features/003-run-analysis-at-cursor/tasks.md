@@ -11,7 +11,7 @@ Each line maps to a note in `vault/tasks/`. Status lives in the note, not here.
 - [x] T-015 Assemble a development bundle and fixture test workspace (done when: `scripts/dev-bundle.mjs` builds the R3 layout, the tool runs from it, and tests open the fixture workspace)
 - [x] T-016 Contribute the analyze command and its settings (done when: command in the palette for Rust files only, both settings in the UI and README, contribution test passes)
 - [x] T-017 Resolve the toolchain and build the run environment (done when: unit tests cover R3 to R5)
-- [ ] T-018 Write the temporary single-file crate (done when: unit tests cover edition detection, crate contents and cleanup; R2, R9)
+- [x] T-018 Write the temporary single-file crate (done when: unit tests cover edition detection, crate contents and cleanup; R2, R9)
 - [ ] T-019 Run cargo aquascope with progress, cancel, timeout and logging (done when: process group killed on cancel and timeout, runs logged, AC8 checked by hand; R8, R11)
 - [ ] T-020 Parse the output and select the body at the cursor (done when: unit tests cover fixture 05's three bodies, nesting, no body and a non-ASCII line; R7)
 - [ ] T-021 Classify failures, show the summary and wire the command (done when: captured diagnostics map to each R10 category and the command works end to end; R10, R13)
