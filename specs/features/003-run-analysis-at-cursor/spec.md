@@ -1,7 +1,7 @@
 ---
 id: 003-run-analysis-at-cursor
 title: Run analysis on the function at the cursor
-status: approved
+status: implemented
 ---
 # Run analysis on the function at the cursor
 
@@ -60,10 +60,10 @@ Recorded 2026-11-06 from the T-013 experiment (Appendix B).
 - [x] AC5: An unsaved edit is analysed: after changing a fixture in the editor without saving, the result reflects the edited text.
 - [x] AC6: With the cursor in a function that uses a module declared by `mod other;` or an external crate such as `rand`, the command produces the single-file limit message naming the module or crate, not a raw compiler error; a function in a file with an unresolved `use serde::Serialize;` that does not itself depend on it is still analysed.
 - [x] AC7: With no tool at either location, the message names the `aquascope.toolchainPath` setting.
-- [ ] AC8: Cancelling a run, or a run exceeding the timeout, leaves no `cargo-aquascope`, `cargo` or `aquascope-driver` process running.
+- [x] AC8: Cancelling a run, or a run exceeding the timeout, leaves no `cargo-aquascope`, `cargo` or `aquascope-driver` process running.
 - [x] AC9: A run writes nothing outside the extension's storage: the workspace folder is unchanged afterwards.
 - [x] AC10: Integration tests cover AC1 to AC7 and AC9, compare results without depending on order, and pass in `npm test`.
-- [ ] AC11: Both settings appear in VS Code's settings UI with descriptions, and the README documents them.
+- [x] AC11: Both settings appear in VS Code's settings UI with descriptions, and the README documents them.
 
 ## Out of scope
 
