@@ -1,0 +1,9 @@
+/* The Aquascope panel's own styles (feature 004). T-027 adds the theme mapping (R7). */
+body {
+  padding: 0.5em 1em;
+}
+
+.aquascope-message {
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+}

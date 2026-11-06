@@ -1,0 +1,133 @@
+import * as assert from 'assert';
+import * as vscode from 'vscode';
+import { selectAtCursor } from '../../analysis/select';
+import { embedInput, EmbedInput } from '../../visualization/embedInput';
+import { contentSecurityPolicy, EMBED_CONFIG, PageContent, pageResources, panelPage, PageResources } from '../../visualization/page';
+import { fixtureData, fixtureText } from './harness';
+
+const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const RESOURCES: PageResources = {
+  cspSource: 'https://file+.vscode-resource.example',
+  embedScript: 'https://res.example/media/aquascope-embed/embed.iife.js',
+  embedStyle: 'https://res.example/media/aquascope-embed/style.css',
+  pageScript: 'https://res.example/media/panel.js',
+  pageStyle: 'https://res.example/media/panel.css',
+};
+
+/** The embed input for a cursor in a captured fixture. */
+function inputAt(name: string, line: number, character: number): EmbedInput {
+  const source = fixtureText(`${name}.rs`);
+  const s = selectAtCursor(fixtureData(`${name}.json`), source, { line, character });
+  assert.ok(s.kind === 'selected');
+  return embedInput(s.output, source);
+}
+
+/** The decoded value of a `data-*` attribute in the page. */
+function dataAttr(html: string, name: string): string | undefined {
+  const raw = new RegExp(`data-${name}="([^"]*)"`).exec(html)?.[1];
+  return raw?.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+interface Report {
+  type: 'rendered' | 'message';
+  renderId: number;
+  code?: string;
+  text?: string;
+  stepWidgets?: number;
+  boundaryMarkers?: number;
+  problems: string[];
+}
+
+/** Shows a page in a real webview, as the panel will, and returns the report its script posts back. */
+async function render(content: PageContent): Promise<Report> {
+  const ext = vscode.extensions.getExtension(EXTENSION_ID);
+  assert.ok(ext);
+  const panel = vscode.window.createWebviewPanel('aquascope.test', 'Aquascope test', vscode.ViewColumn.One, {
+    enableScripts: true,
+    localResourceRoots: [vscode.Uri.joinPath(ext.extensionUri, 'media')],
+  });
+  try {
+    const report = new Promise<Report>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('the page posted no report within 20 s')), 20_000);
+      panel.webview.onDidReceiveMessage((m: Report) => {
+        clearTimeout(timer);
+        resolve(m);
+      });
+    });
+    panel.webview.html = panelPage(content, pageResources(panel.webview, ext.extensionUri), 7);
+    return await report;
+  } finally {
+    panel.dispose();
+  }
+}
+
+const distinctBoundaries = (input: EmbedInput): number => {
+  const [entry] = input.response;
+  assert.ok('Ok' in entry);
+  return new Set(entry.Ok.boundaries.map((b) => `${b.location.line}:${b.location.column}`)).size;
+};
+
+suite('panel page (004 R2, R6, R10)', () => {
+  test("allows only the webview's own files, plus inline styles", () => {
+    const csp = contentSecurityPolicy(RESOURCES.cspSource);
+    assert.match(csp, /^default-src 'none'; /);
+    assert.match(csp, /script-src https:\/\/file\+\.vscode-resource\.example(;|$)/, 'scripts only from the webview source');
+    assert.match(csp, /style-src https:\/\/file\+\.vscode-resource\.example 'unsafe-inline'/);
+    assert.match(csp, /; img-src data:$/, 'images only as data URIs, for the stylesheet\'s SVG filter');
+    assert.doesNotMatch(csp, /unsafe-eval|connect-src|font-src|http:|\*/);
+  });
+
+  test('passes the embed its code, response and configuration, read-only', () => {
+    const input = inputAt('05_method_mut_borrow', 18, 4);
+    const html = panelPage({ kind: 'analysis', input }, RESOURCES, 3);
+    assert.strictEqual(JSON.parse(dataAttr(html, 'code') ?? ''), input.code);
+    assert.deepStrictEqual(JSON.parse(dataAttr(html, 'responses') ?? ''), { permissions: input.response });
+    assert.deepStrictEqual(JSON.parse(dataAttr(html, 'operations') ?? ''), ['permissions']);
+    assert.deepStrictEqual(JSON.parse(dataAttr(html, 'config') ?? ''), EMBED_CONFIG);
+    assert.strictEqual(dataAttr(html, 'no-interact'), 'true');
+    assert.strictEqual(dataAttr(html, 'render-id'), '3');
+    const policy = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html)?.[1];
+    assert.strictEqual(policy?.replace(/&#39;/g, "'"), contentSecurityPolicy(RESOURCES.cspSource));
+    // Every script is a file; the page has no inline script and no bug reporter.
+    assert.deepStrictEqual(html.match(/<script[^>]*>/g), [`<script src="${RESOURCES.pageScript}">`, `<script src="${RESOURCES.embedScript}">`]);
+    assert.doesNotMatch(html, /show-bug-reporter|server-url/);
+  });
+
+  test('escapes code that contains quotes and markup', () => {
+    const input = { ...inputAt('05_method_mut_borrow', 18, 4), code: `let s = "<b>&'x'</b>";` };
+    const html = panelPage({ kind: 'analysis', input }, RESOURCES, 1);
+    assert.strictEqual(JSON.parse(dataAttr(html, 'code') ?? ''), input.code);
+    assert.ok(!html.includes('<b>'));
+  });
+
+  test('shows a message without loading the embed', () => {
+    const html = panelPage({ kind: 'message', text: 'No function at <the> cursor & "here"' }, RESOURCES, 2);
+    assert.ok(html.includes('No function at &lt;the&gt; cursor &amp; "here"'));
+    assert.ok(!html.includes(RESOURCES.embedScript));
+    assert.ok(!html.includes('aquascope-embed"'));
+  });
+});
+
+suite('panel page in a real webview (004 Q1, R10)', function () {
+  this.timeout(60_000);
+
+  for (const [name, line, character] of [['05_method_mut_borrow', 18, 4], ['05_method_mut_borrow', 8, 8], ['n2_nested', 7, 25], ['n1_non_ascii', 2, 50]] as const) {
+    test(`draws ${name} at ${line}:${character} with no policy violation or script error`, async () => {
+      const input = inputAt(name, line, character);
+      const report = await render({ kind: 'analysis', input });
+      assert.deepStrictEqual(report.problems, []);
+      assert.strictEqual(report.type, 'rendered');
+      assert.strictEqual(report.renderId, 7);
+      assert.strictEqual(report.code, input.code);
+      const [entry] = input.response;
+      assert.ok('Ok' in entry);
+      assert.strictEqual(report.stepWidgets, entry.Ok.steps.length, 'one step widget per step');
+      assert.strictEqual(report.boundaryMarkers, distinctBoundaries(input), 'one marker per boundary location');
+    });
+  }
+
+  test('shows a message', async () => {
+    const report = await render({ kind: 'message', text: 'There is no function at the cursor.' });
+    assert.deepStrictEqual(report, { type: 'message', renderId: 7, text: 'There is no function at the cursor.', problems: [] });
+  });
+});

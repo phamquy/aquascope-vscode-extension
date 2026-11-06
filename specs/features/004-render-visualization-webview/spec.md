@@ -11,7 +11,7 @@ Feature 003 runs Aquascope on the function at the cursor, but it shows the resul
 
 Aquascope ships that frontend as `aquascope-embed`, the script the mdBook plugin loads into each Book page. It needs no server when it is given the analysis up front. A page holds a `<div class="aquascope-embed">` whose data attributes carry the code, the operation (`permissions`) and the precomputed response, and a global `initAquascopeBlocks` draws every such block. The response it expects is the list of per-function results that `cargo aquascope permissions` prints. It places each marker by line and column within the code it was given, counting columns in UTF-16 code units, which is the unit 003's result already uses. The panel shows only the analysed function's lines, so the extension hands the embed the selected result alone, with its line numbers shifted to start at the function's first line. The columns stay as they are, because whole lines are shown. The evidence, with source locations in the pinned v0.4.0 tree, is in Appendix A.
 
-The built embed is not in Aquascope's git repository, but spike 002 found it in the published `mdbook-aquascope` 0.4.0 crate, from which it can be vendored with no frontend build (D1). The embed was written for mdBook pages, though. Its colours come from mdBook's theme variables, which do not exist in a webview, so the panel needs a small stylesheet that supplies them from VS Code's theme. Whether it runs under a webview's content security policy is not yet known (Q1).
+The built embed is not in Aquascope's git repository, but spike 002 found it in the published `mdbook-aquascope` 0.4.0 crate, from which it can be vendored with no frontend build (D1). The embed was written for mdBook pages, though. Its colours come from mdBook's theme variables, which do not exist in a webview, so the panel needs a small stylesheet that supplies them from VS Code's theme. It runs unchanged under a strict content security policy once inline styles are allowed (D7).
 
 The panel opens on its own after every successful run and replaces 003's interim summary notification (003 R13), so running the command is enough to see the diagrams. Errors keep 003's notifications, and an open panel shows the same message instead of an outdated diagram.
 
@@ -25,6 +25,7 @@ D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06;
 - D4: No new settings. The panel opens automatically and has nothing to configure, so constitution principle 4 is met by documenting it in the README.
 - D5 (was Q2): The code in the panel is not syntax-coloured in this version. The embed tags tokens with highlight.js classes but ships no colours for them, and mapping them to each theme is extra work that the diagrams do not need; the diagrams keep their own colours.
 - D6 (was Q3): The embed's narrow layout is accepted. Below 800 pixels of width it places each step table under its line instead of beside it, as the Book does on narrow screens, and the breakpoint is not overridden.
+- D7 (was Q1, settled by T-025 on 2026-11-06): The embed runs unchanged under the policy `default-src 'none'; script-src <webview>; style-src <webview> 'unsafe-inline'; img-src data:`. Rendering four captured results in a real webview reported no policy violation and no script error, with the expected step widgets and boundary markers. Without `'unsafe-inline'`, every render reports blocked inline style elements and style attributes, so it is needed; `data:` images cover an SVG filter in the embed's stylesheet. The embed declares no fonts and the policy allows no requests.
 
 ### User stories
 
@@ -39,7 +40,7 @@ D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06;
 - R3: The panel shows the whole lines spanned by the selected body's range, as they were when the command ran, including unsaved edits; for a closure this is the line or lines containing it. The embed receives the selected result with its lines shifted as in D2, so that every marker sits on the code it belongs to, including on lines with characters outside the Basic Multilingual Plane such as emoji.
 - R4: There is at most one Aquascope panel. The first one opens beside the active editor. A later analysis replaces its contents and reveals it where it is, without taking focus. After the user closes it, the next analysis opens a new one. The panel's title names the analysed lines, for example "Aquascope: lines 17–21".
 - R5: The panel never shows a result older than the latest finished run. When a run ends with one of 003's error messages (R10), the notification appears as in 003, and an open panel replaces its diagram with the same message. A run that is cancelled or replaced by a newer run, and a run that finds no active Rust editor (for example because the panel has focus), leave the panel as it was.
-- R6: The panel works offline and sends nothing anywhere (constitution 6). It loads scripts, styles and other files only from the extension's own folder, under a content security policy with no network sources. Inline style elements inserted by the embed at run time may be allowed (`style-src 'unsafe-inline'`), since they load nothing. The embed's bug reporter and telemetry stay off.
+- R6: The panel works offline and sends nothing anywhere (constitution 6). It loads scripts, styles and other files only from the extension's own folder, under a content security policy with no network sources. Inline styles inserted by the embed at run time (`style-src 'unsafe-inline'`) and `data:` images are allowed, since they load nothing (D7). The embed's bug reporter and telemetry stay off.
 - R7: The panel is readable in VS Code's default light and dark themes: the code, the step tables and the permission letters contrast with the background, and a missing permission looks different from a held one.
 - R8: The vendored embed files live outside `src/`, so that they are packaged (`.vscodeignore` excludes `src/**`), together with a note of their origin (crate name and version, Aquascope commit) and Aquascope's MIT licence notice.
 - R9: The embed is not part of the extension's bundle (`dist/extension.js`); the webview loads it from the extension folder, so activation is unaffected (constitution 3).
@@ -74,7 +75,7 @@ D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06;
 
 ## Open questions
 
-- Q1: Does the embed run unchanged under the policy in R6? CodeMirror and Font Awesome insert style elements at run time, which R6 allows; anything else it needs, such as fonts or `eval`, is unknown until it is tried.
+None; Q1 is settled as D7.
 
 ## Appendix A: Aquascope's embed frontend at v0.4.0
 
