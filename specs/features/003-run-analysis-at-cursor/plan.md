@@ -51,7 +51,7 @@ Tests run inside the existing VS Code test instance. Pure-module tests use JSON 
 
 ## Test strategy
 
-Every module gets tests in the existing mocha suite, and the integration tests in `analyze.test.ts` cover the spec's acceptance criteria end to end against the development bundle (AC1 to AC7 and AC9, as AC10 requires). Results are compared without depending on order. AC8, process cleanup on cancel and timeout, and AC11, the settings UI, are checked by hand, and the result is recorded in the task note. The mapping from criteria to tests is in Appendix C.
+Every module gets tests in the existing mocha suite, and the integration tests in `analyze.test.ts` cover the spec's acceptance criteria end to end against the development bundle (AC1 to AC7 and AC9, as AC10 requires). Results are compared without depending on order. AC8, process cleanup on cancel and timeout, is tested automatically in `runner.test.ts` by running a real analysis long enough to watch its process group, and only the Cancel button of the notification is clicked by hand. AC11, the settings UI, is checked by hand. Manual results are recorded in the task notes. The mapping from criteria to tests is in Appendix C.
 
 ## Appendix A: experiment checks (Q1, Q2, R4 overrides)
 
@@ -70,7 +70,7 @@ Every module gets tests in the existing mocha suite, and the integration tests i
 | --- | --- | --- | --- |
 | `toolchain.ts` | R3, R4, R5 | Root from setting (no fallback when set) or `extensionUri/aquascope`; checks `bin/cargo-aquascope`, `bin/aquascope-driver` and `toolchain/bin/cargo` exist; builds env from a copy of `process.env` (pure function of env and platform) | Unit: env per platform, removal and override list, missing tool |
 | `scratchCrate.ts` | R2, R9 | Nearest `Cargo.toml` edition with workspace inheritance, default 2024; writes `Cargo.toml` (`[workspace]`, no deps) and `src/lib.rs`; deletes older runs | Unit: edition cases on temporary dirs; crate contents; cleanup |
-| `runner.ts` | R8, R11 | Spawns `<root>/toolchain/bin/cargo aquascope permissions` (and, for R10, `cargo check --message-format=json`) in the crate dir as a process group; collects stdout and stderr; kills the group on cancel or timeout; logs command, env delta, duration, exit code, and stderr on failure or its size on success | Unit: kill on timeout using a `sleep` child; manual AC8 |
+| `runner.ts` | R8, R11 | Spawns `<root>/toolchain/bin/cargo aquascope permissions` (and, for R10, `cargo check --message-format=json`) in the crate dir as a process group; collects stdout and stderr; kills the group on cancel or timeout; logs command, env delta, duration, exit code, and stderr on failure or its size on success | Unit: group kill on timeout and cancel using a shell with a `sleep` grandchild; AC8 against the dev bundle |
 | `select.ts` | R7 | Parses `{Ok}` / `{Err}` entries; converts char columns to UTF-16; picks the innermost containing body; reports "no function at cursor" | Unit: spike JSON for fixture 05 (three bodies), nesting, non-ASCII line |
 | `errors.ts` | R10 | Maps spawn errors and exit codes to tool not found, timeout or other; maps `BuildError` entries plus `cargo check` JSON diagnostics to single-file limit (`E0432`, `E0433`, `E0463`, `E0583`, naming the module or crate) or other compile errors (with the failing functions' lines) | Unit: diagnostics captured in the experiment |
 | `command.ts` | R1, R13 | Orchestrates, cancels an in-flight run when a new one starts, shows the summary or error with "Show Output", writes the selected JSON to the channel, returns the typed result | Integration |
@@ -87,7 +87,7 @@ Every module gets tests in the existing mocha suite, and the integration tests i
 | AC5 | `analyze.test.ts`: edit without saving (insert a line), result range shifts accordingly |
 | AC6 | `analyze.test.ts`: cursor in `main` of the `mod other;` and `rand::` fixtures returns the single-file-limit code naming `other` and `rand`; cursor in `main` of the `use serde::Serialize;` fixture returns an analysis |
 | AC7 | `analyze.test.ts`: `toolchainPath` set to a missing directory returns tool-not-found naming the setting |
-| AC8 | Manual: timeout set to 1 s and a run cancelled from the notification, then `pgrep -fl 'cargo|aquascope'` shows nothing; recorded in the task note |
+| AC8 | `runner.test.ts`: a real analysis of a 4,000-function file is cancelled once `aquascope-driver` runs, and another times out after 2.5 s; in both, the process group is empty afterwards. Manual: a run cancelled from the notification, then `pgrep -fl 'cargo|aquascope'` shows nothing; recorded in T-022 |
 | AC9 | `analyze.test.ts`: workspace file listing and mtimes identical before and after the runs |
 | AC10 | All of the above in `npm test` |
 | AC11 | `contributes.test.ts`: both settings declared with descriptions; manual look at the settings UI; README section present |
