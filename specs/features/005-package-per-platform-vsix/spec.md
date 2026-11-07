@@ -1,7 +1,7 @@
 ---
 id: 005-package-per-platform-vsix
 title: Package per-platform VSIX with toolchain
-status: approved
+status: implemented
 ---
 # Package per-platform VSIX with toolchain
 
@@ -52,31 +52,31 @@ D1 to D3 were recorded on 2026-11-06 from the draft's open questions, D4 and D5 
 
 ## Acceptance criteria
 
-- [ ] AC1: The VSIX's manifest has `TargetPlatform="darwin-arm64"`. It contains the following files, all executable:
+- [x] AC1: The VSIX's manifest has `TargetPlatform="darwin-arm64"`. It contains the following files, all executable:
   - `extension/aquascope/bin/cargo-aquascope` and `extension/aquascope/bin/aquascope-driver`;
   - `extension/aquascope/toolchain/bin/cargo` and `extension/aquascope/toolchain/bin/rustc`;
   - `extension/aquascope/toolchain/lib/librustc_driver-*.dylib`.
 
   Every other file under `extension/aquascope/toolchain/` is either listed in the pinned nightly's `rustc`, `cargo` or `rust-std` manifest and not removed by R4, or is one of AC3's licence files.
-- [ ] AC2: The darwin-arm64 VSIX is at most 150 MB.
-- [ ] AC3: The VSIX contains:
+- [x] AC2: The darwin-arm64 VSIX is at most 150 MB.
+- [x] AC3: The VSIX contains:
   - the extension's `LICENSE`;
   - `share/doc/rust/COPYRIGHT.html`, `COPYRIGHT-library.html` and `licenses/`, and `share/doc/cargo/LICENSE-*`, under `extension/aquascope/toolchain/`;
   - Aquascope's licence;
   - a notices file naming every crate in the binaries' dependency graph;
   - `media/aquascope-embed/THIRD-PARTY-NOTICES`.
-- [ ] AC4: The script's failure handling:
+- [x] AC4: The script's failure handling:
   - **A failing test:** it stops, and no VSIX for the target exists afterwards.
   - **Toolchain tests skipped**, for example because no bundle is found at the staging path: it stops in the same way.
   - **Clean-up:** after a successful run and after a failed one, there is no `aquascope/` folder at the repository root.
-- [ ] AC5: Checked by hand: on a Mac, or a macOS user account, without rustup and with the network off:
+- [x] AC5: Checked by hand: on a Mac, or a macOS user account, without rustup and with the network off:
   1. Download the darwin-arm64 VSIX through a web browser.
   2. Install it with "Install from VSIX…" into a fresh profile, with `aquascope.toolchainPath` empty.
   3. Analyse `main` of `05_method_mut_borrow`.
 
   The panel draws the diagram, and no macOS security dialog appears. If macOS blocks the binaries, the feature goes back to the spec, since signing is out of scope.
-- [ ] AC6: The script stops before building, naming the mismatch, when the pin names an Aquascope commit other than the checkout's, or a nightly other than the checkout's `rust-toolchain.toml`. Its stop on other platforms is checked by reading the script.
-- [ ] AC7: The script's output names the VSIX and its size, and the README explains building a package and installing it from the VSIX file.
+- [x] AC6: The script stops before building, naming the mismatch, when the pin names an Aquascope commit other than the checkout's, or a nightly other than the checkout's `rust-toolchain.toml`. Its stop on other platforms is checked by reading the script.
+- [x] AC7: The script's output names the VSIX and its size, and the README explains building a package and installing it from the VSIX file.
 
 ## Out of scope
 
