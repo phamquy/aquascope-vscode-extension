@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/b074c7ec-d93a-4ff4-a5d1-5d141dd60e49
 
 ## Usage
 
-Open a Rust file, put the cursor inside a function and run **Aquascope: Analyze Function at Cursor** from the Command Palette. The file is analysed on its own, exactly as it is in the editor, including unsaved changes. This version cannot follow `mod` declarations or external crates, and says so when the function at the cursor needs them. Each run is logged to the **Aquascope** output channel.
+Open a Rust file, put the cursor inside a function and click the eye button at the right end of the editor's tab bar, beside Split Editor, or run **Aquascope: Analyze Function at Cursor** from the Command Palette. The button shows only above Rust files and analyses the file it sits above, even while the Aquascope panel has focus. To hide it, right-click it and choose **Hide**; right-clicking any of the tab bar's buttons brings it back. The file is analysed on its own, exactly as it is in the editor, including unsaved changes. This version cannot follow `mod` declarations or external crates, and says so when the function at the cursor needs them. Each run is logged to the **Aquascope** output channel.
 
 The result opens in an **Aquascope** panel beside the editor, drawn as in the Rust Book's experiment edition: beside each line, a table of how the variables' permissions change, and before each expression that needs a permission, a marker showing whether the variable has it. Running the command again updates the same panel without moving the cursor out of the editor. When a run cannot analyse the function, the panel shows why in place of the old diagram. The panel has no settings.
 

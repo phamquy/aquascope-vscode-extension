@@ -9,8 +9,8 @@ const COMMAND = 'aquascope.analyzeAtCursor';
 const SETTINGS = ['aquascope.toolchainPath', 'aquascope.analysisTimeoutSeconds'];
 
 interface Contributes {
-  commands: { command: string; title: string }[];
-  menus: { commandPalette: { command: string; when?: string }[] };
+  commands: { command: string; title: string; icon?: string }[];
+  menus: Record<'commandPalette' | 'editor/title', { command: string; when?: string; group?: string }[]>;
   configuration: { properties: Record<string, { default: unknown; scope?: string; markdownDescription?: string }> };
 }
 
@@ -31,6 +31,15 @@ suite('analyze command contributions (R1, R14)', () => {
     assert.strictEqual(command?.title, 'Aquascope: Analyze Function at Cursor');
     const palette = contributes.menus.commandPalette.find((m) => m.command === COMMAND);
     assert.strictEqual(palette?.when, 'editorLangId == rust');
+  });
+
+  test('feature 006 AC1: puts the command beside Split Editor, above Rust files only, with an icon', () => {
+    const command = contributes.commands.find((c) => c.command === COMMAND);
+    assert.strictEqual(command?.icon, '$(eye)');
+    const entries = contributes.menus['editor/title'].filter((m) => m.command === COMMAND);
+    // `navigation` draws it as an icon in the title bar; `resourceLangId` follows each group's own editor,
+    // so it still shows while the Aquascope panel has focus (spec 006 R2).
+    assert.deepStrictEqual(entries, [{ command: COMMAND, when: 'resourceLangId == rust', group: 'navigation' }]);
   });
 
   test('registers the command', async () => {

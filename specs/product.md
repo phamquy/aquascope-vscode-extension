@@ -107,4 +107,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 003 | Run analysis on the function at the cursor    | implemented |
 | 004 | Render the visualization in a webview         | implemented |
 | 005 | Package per-platform VSIX with toolchain      | implemented |
-| 006 | Analyze from a button in the editor title bar | approved    |
+| 006 | Analyze from a button in the editor title bar | implemented |
