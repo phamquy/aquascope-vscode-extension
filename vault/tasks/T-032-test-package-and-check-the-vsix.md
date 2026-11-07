@@ -1,7 +1,7 @@
 ---
 id: T-032
 title: "Test, package and check the VSIX"
-status: review
+status: done
 priority: medium
 feature: "005-package-per-platform-vsix"
 created: 2026-11-07
