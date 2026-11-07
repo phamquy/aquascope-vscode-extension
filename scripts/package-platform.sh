@@ -4,10 +4,12 @@
 #   npm run package        or   bash scripts/package-platform.sh
 #
 # Runs in stages, each stopping the script with a message on failure: check (platform, pin and the
-# Aquascope checkout), build (the Aquascope binaries), assemble (the bundle in build/bundle). Everything
-# is built in build/, which git ignores and the package never contains. Needs rustup, git, the Xcode
-# Command Line Tools, Node and npm, and the network while building. The pin is
-# spikes/002-toolchain-bundling/pin.env; AQUASCOPE_PIN may name another file, for checking the script.
+# Aquascope checkout), build (the Aquascope binaries), assemble (the bundle in build/bundle), test (the
+# extension against that bundle) and package (the VSIX, then a check of its contents). Everything is
+# built in build/, which git ignores and the package never contains; the bundle sits at aquascope/ in the
+# repository root only while vsce runs. Needs rustup, git, the Xcode Command Line Tools, Node and npm,
+# and the network while building. The pin is spikes/002-toolchain-bundling/pin.env; AQUASCOPE_PIN may
+# name another file, for checking the script.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 pin="${AQUASCOPE_PIN:-$root/spikes/002-toolchain-bundling/pin.env}"
@@ -15,6 +17,8 @@ build="$root/build"
 src="$build/aquascope-src"
 install="$build/install"
 bundle="$build/bundle"
+staged="$root/aquascope"
+version="$(node -p "require('$root/package.json').version")"
 
 step() { printf '\n== %s\n' "$1"; }
 fail() {
@@ -120,6 +124,31 @@ assemble() {
   echo "bundle: $(du -sh "$bundle" | cut -f1), $(find "$bundle" -type f | wc -l | tr -d ' ') files"
 }
 
+test_bundle() {
+  step "test: the extension against build/bundle"
+  # Strict: a missing bundle or a skipped toolchain test fails the run (T-030).
+  (cd "$root" && npm run --silent typecheck && npm run --silent lint &&
+    AQUASCOPE_REQUIRE_TOOLCHAIN=1 AQUASCOPE_TEST_TOOLCHAIN="$bundle" npm test) ||
+    fail "the tests failed against build/bundle; no package was written"
+}
+
+package() {
+  step "package: $(basename "$vsix")"
+  # vsce packages the folder it runs in, so the bundle is copied to the root for this step only.
+  rm -rf "$staged"
+  cp -Rp "$bundle" "$staged"
+  (cd "$root" && npx --no-install vsce package --target "$target" --no-dependencies --out "$vsix")
+  rm -rf "$staged"
+  node "$root/scripts/check-vsix.mjs" "$vsix" "$host" "$RUST_NIGHTLY" "$bundle"
+  echo "packaged: $vsix ($(node -p "(require('fs').statSync('$vsix').size / 1048576).toFixed(1)") MB)"
+}
+
+# The bundle never outlives the package step, whatever happens, and a VSIX left afterwards is this run's.
+trap 'rm -rf "$staged"' EXIT
 check
+vsix="$root/aquascope-vscode-extension-$target-$version.vsix"
+rm -f "$vsix"
 build
 assemble
+test_bundle
+package

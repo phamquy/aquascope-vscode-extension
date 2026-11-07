@@ -11,5 +11,6 @@ vault/.trash/
 spikes/*/work/
 .claude/settings.local.json
 
-# Packaging work folder (feature 005)
+# Packaging work folder, and the bundle placed at the root only while vsce packages (feature 005)
 build/
+/aquascope/
