@@ -16,3 +16,4 @@ eslint.config.mjs
 .vscode-test/**
 spikes/**
 .gitignore
+build/**

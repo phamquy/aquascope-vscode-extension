@@ -10,3 +10,6 @@ vault/.trash/
 
 spikes/*/work/
 .claude/settings.local.json
+
+# Packaging work folder (feature 005)
+build/
