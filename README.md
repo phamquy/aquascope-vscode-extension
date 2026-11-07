@@ -2,6 +2,13 @@
 
 Spec-driven, AI-assisted VS Code extension. See [CLAUDE.md](CLAUDE.md) for the workflow, `specs/` for what is being built, and `vault/` (open in Obsidian) for task tracking.
 
+## Demo
+
+A short demo of the extension in use:
+
+<!-- markdownlint-disable-next-line MD034 -- GitHub only turns a bare attachment link into a video player -->
+https://github.com/user-attachments/assets/b074c7ec-d93a-4ff4-a5d1-5d141dd60e49
+
 ## Usage
 
 Open a Rust file, put the cursor inside a function and run **Aquascope: Analyze Function at Cursor** from the Command Palette. The file is analysed on its own, exactly as it is in the editor, including unsaved changes. This version cannot follow `mod` declarations or external crates, and says so when the function at the cursor needs them. Each run is logged to the **Aquascope** output channel.
