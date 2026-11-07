@@ -1,7 +1,7 @@
 ---
 id: T-029
 title: "Add the extension's licence and the embed's third-party notice"
-status: review
+status: done
 priority: medium
 feature: "005-package-per-platform-vsix"
 created: 2026-11-07
