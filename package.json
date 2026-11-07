@@ -25,7 +25,8 @@
       },
       {
         "command": "aquascope.analyzeAtCursor",
-        "title": "Aquascope: Analyze Function at Cursor"
+        "title": "Aquascope: Analyze Function at Cursor",
+        "icon": "$(eye)"
       }
     ],
     "menus": {
@@ -33,6 +34,13 @@
         {
           "command": "aquascope.analyzeAtCursor",
           "when": "editorLangId == rust"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "aquascope.analyzeAtCursor",
+          "when": "resourceLangId == rust",
+          "group": "navigation"
         }
       ]
     },

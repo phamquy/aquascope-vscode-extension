@@ -1,7 +1,7 @@
 ---
 id: 006-editor-title-button
 title: Analyze from a button in the editor title bar
-status: approved
+status: implemented
 ---
 
 # Analyze from a button in the editor title bar
@@ -40,11 +40,11 @@ Recorded 2026-11-06 when the draft was approved. Each one takes the recommendati
 
 ## Acceptance criteria
 
-- [ ] AC1: The manifest contributes the command to `editor/title` in the `navigation` group, with a `when` clause that limits it to Rust files, and the command declares an icon. An integration test checks this.
-- [ ] AC2: With a Rust fixture open and the Aquascope panel focused, invoking the command the way the title bar does, with that editor's URI as its argument, analyses the fixture at its cursor and shows the result in the panel. An integration test checks this.
-- [ ] AC3: Invoking the command with no argument still analyses the active Rust editor, and still reports `noRustEditor` when there is none. The existing tests keep passing.
-- [ ] AC4: A hand check in the Extension Development Host, recorded in the task note, confirms four things. The button appears beside Split Editor for a Rust file. It does not appear for a Markdown file or above the Aquascope panel. Its tooltip names the command. Clicking it draws the diagram.
-- [ ] AC5: The README describes the button and how to hide it.
+- [x] AC1: The manifest contributes the command to `editor/title` in the `navigation` group, with a `when` clause that limits it to Rust files, and the command declares an icon. An integration test checks this.
+- [x] AC2: With a Rust fixture open and the Aquascope panel focused, invoking the command the way the title bar does, with that editor's URI as its argument, analyses the fixture at its cursor and shows the result in the panel. An integration test checks this.
+- [x] AC3: Invoking the command with no argument still analyses the active Rust editor, and still reports `noRustEditor` when there is none. The existing tests keep passing.
+- [x] AC4: A hand check in the Extension Development Host, recorded in the task note, confirms four things. The button appears beside Split Editor for a Rust file. It does not appear for a Markdown file or above the Aquascope panel. Its tooltip names the command. Clicking it draws the diagram.
+- [x] AC5: The README describes the button and how to hide it.
 
 ## Out of scope
 
@@ -58,15 +58,15 @@ None. Q1 to Q4 were settled when the draft was approved and are recorded as D1 t
 
 ## Appendix A: Current behaviour and VS Code facts this spec relies on
 
-The VS Code rows marked "to confirm" come from the VS Code documentation, not from a test in this repository; the plan confirms them, and AC2 tests the one R3 depends on.
+The VS Code rows came from VS Code's documentation and have since been confirmed in this repository: the `activeTextEditor` row by T-034's AC2 test, and the others by T-035's hand check, in which the button showed before the extension had run and a click with the panel focused drew the diagram.
 
 | Fact | Source |
 | --- | --- |
 | The command reads `vscode.window.activeTextEditor` and returns `noRustEditor` when it is missing or not Rust | `src/analysis/command.ts:20-23` |
 | The palette entry is limited by `editorLangId == rust`; there is no `editor/title` contribution and the command has no icon | `package.json` `contributes`; `src/test/suite/contributes.test.ts` |
 | A new run cancels the run in progress | `src/analysis/command.ts:17`, `:41-43` |
-| Items in the `editor/title` menu's `navigation` group show as icons in the title bar; items in other groups go to the "…" overflow menu | VS Code docs, contribution points, `menus` (to confirm) |
-| A command run from `editor/title` receives the URI of that group's active editor as its first argument | VS Code docs, contribution points, `menus` (to confirm) |
-| `window.activeTextEditor` is `undefined` while a webview panel has focus | VS Code API behaviour (to confirm; AC2 tests it) |
-| In a title bar, `resourceLangId` is evaluated for that group's editor, whereas `editorLangId` follows the focused text editor, so the palette's `when` clause would hide the button while the panel has focus | VS Code docs, when clause contexts (to confirm) |
-| Menu items are drawn from the manifest without activating the extension; on VS Code 1.74 and later, running a contributed command activates it | VS Code docs, activation events (to confirm) |
+| Items in the `editor/title` menu's `navigation` group show as icons in the title bar; items in other groups go to the "…" overflow menu | VS Code docs, contribution points, `menus` (confirmed by T-035's hand check) |
+| A command run from `editor/title` receives the URI of that group's active editor as its first argument | VS Code docs, contribution points, `menus` (confirmed by T-035's hand check) |
+| `window.activeTextEditor` is `undefined` while a webview panel has focus | VS Code API behaviour (confirmed by T-034's AC2 test) |
+| In a title bar, `resourceLangId` is evaluated for that group's editor, whereas `editorLangId` follows the focused text editor, so the palette's `when` clause would hide the button while the panel has focus | VS Code docs, when clause contexts (confirmed by T-035's hand check) |
+| Menu items are drawn from the manifest without activating the extension; on VS Code 1.74 and later, running a contributed command activates it | VS Code docs, activation events (confirmed by T-035's hand check) |
