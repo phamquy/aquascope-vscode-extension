@@ -94,7 +94,7 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 - The extension must upgrade the Aquascope tag and the nightly together; each upgrade means rebuilding every platform package.
 - Marketplace package size limit is undocumented and the package is about 120 MB per platform. Must be checked with a test publish before release; the fallback is downloading the toolchain on first run.
 - Windows and Linux are unverified; Aquascope upstream only tests Linux. Flowistry (same framework) ships Linux, macOS and Windows x86_64.
-- macOS Gatekeeper may block the unsigned bundled binaries after install; untested.
+- macOS Gatekeeper may block the unsigned bundled binaries after install. Checked for darwin-arm64 in feature 005: a browser-downloaded VSIX installed on an account without rustup, offline, ran with no security dialog. Other platforms are untested.
 - Aquascope's output order is not stable between runs, so tests and rendering must not depend on it.
 - Answered by spike 002 ([findings](../docs/spikes/002-toolchain-bundling.md)): bundling works without `rustc-dev`, Miri, `rust-src` or rustup; the extension must set `PATH` and the library path.
 
@@ -106,4 +106,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 002 | Toolchain bundling spike                   | implemented |
 | 003 | Run analysis on the function at the cursor | implemented |
 | 004 | Render the visualization in a webview      | implemented |
-| 005 | Package per-platform VSIX with toolchain   | approved    |
+| 005 | Package per-platform VSIX with toolchain   | implemented |
