@@ -28,11 +28,19 @@ export function fixtureText(name: string): string {
   return readFileSync(fixture(name).fsPath, 'utf8');
 }
 
-/** Returns the bundle root, or skips the calling test with a visible reason when there is none. */
-export function requireToolchain(ctx: Mocha.Context): string {
-  if (!testToolchain) {
+/**
+ * Returns the bundle root, or skips the calling test with a visible reason when there is none. With
+ * AQUASCOPE_REQUIRE_TOOLCHAIN=1, set by the packaging script (feature 005 R5), a missing bundle fails the
+ * test instead, so that a run meant to test the tools cannot pass without them.
+ */
+export function requireToolchain(ctx: Mocha.Context, env: NodeJS.ProcessEnv = process.env): string {
+  const root = env.AQUASCOPE_TEST_TOOLCHAIN;
+  if (!root) {
+    if (env.AQUASCOPE_REQUIRE_TOOLCHAIN === '1') {
+      throw new Error('AQUASCOPE_REQUIRE_TOOLCHAIN is set, but no toolchain bundle was found (AQUASCOPE_TEST_TOOLCHAIN)');
+    }
     console.warn('    no toolchain bundle: run `npm run dev-bundle` or set AQUASCOPE_TEST_TOOLCHAIN; skipping');
     ctx.skip();
   }
-  return testToolchain as string;
+  return root as string;
 }
