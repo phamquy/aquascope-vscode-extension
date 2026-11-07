@@ -105,5 +105,5 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 001 | Bootstrap extension                        | implemented |
 | 002 | Toolchain bundling spike                   | implemented |
 | 003 | Run analysis on the function at the cursor | implemented |
-| 004 | Render the visualization in a webview      | approved    |
+| 004 | Render the visualization in a webview      | implemented |
 | 005 | Package per-platform VSIX with toolchain   | draft       |

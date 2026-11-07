@@ -1,7 +1,7 @@
 ---
 id: 004-render-visualization-webview
 title: Render the visualization in a webview
-status: approved
+status: implemented
 ---
 # Render the visualization in a webview
 
@@ -49,18 +49,18 @@ D1 to D4 were proposed in the draft and confirmed by its approval on 2026-11-06;
 
 ## Acceptance criteria
 
-- [ ] AC1: With the cursor in `main` of `05_method_mut_borrow`, running the command opens one Aquascope panel beside the editor, titled "Aquascope: lines 17–21". The panel reports `main`'s five lines, one step widget per entry in the result's `steps`, and one boundary marker per distinct boundary location. The active text editor is still the Rust file, and the command returns the 003 result.
-- [ ] AC2: Running the command again with the cursor in `grow` updates the same panel to "Aquascope: lines 8–11" and `grow`'s lines; there is still one Aquascope panel. After the panel is closed, the next run opens a new one.
-- [ ] AC3: After AC2, running the command with the cursor on the `struct` line leaves no diagram in the panel; it reports the no-function message.
-- [ ] AC4: For `04_push_while_borrowed_fail`, the boundary marker before `v` in `v.push(4);` shows the write permission as missing, drawn as the Book draws a missing permission (checked by hand).
-- [ ] AC5: After an unsaved edit inside `main`, the panel reports the edited text.
-- [ ] AC6: On `n1_non_ascii`, the boundary marker for the moved `s` sits directly before `s` in `let t = s;`, after the emoji on that line (checked by hand).
-- [ ] AC7: A run cancelled from the progress notification, and a run started while the panel has focus, leave the panel's diagram as it was (checked by hand).
-- [ ] AC8: The panel's HTML carries a content security policy whose script and resource sources are only the extension's own files, and the panel draws with the machine's network turned off (checked by hand).
-- [ ] AC9: In the Dark Modern and Light Modern themes, the code, step tables and permission letters are readable and missing permissions are distinguishable from held ones (checked by hand).
-- [ ] AC10: The vendored embed folder holds the origin note and the MIT licence, and `vsce ls` lists the embed files.
-- [ ] AC11: Integration tests cover AC1, AC2, AC3 and AC5 and pass in `npm test`.
-- [ ] AC12: In a panel narrower than 800 pixels, each step table sits after its line, at the same height, with the arrow pointing at the line's end, and the panel scrolls sideways to show it (checked by hand; D6).
+- [x] AC1: With the cursor in `main` of `05_method_mut_borrow`, running the command opens one Aquascope panel beside the editor, titled "Aquascope: lines 17–21". The panel reports `main`'s five lines, one step widget per entry in the result's `steps`, and one boundary marker per distinct boundary location. The active text editor is still the Rust file, and the command returns the 003 result.
+- [x] AC2: Running the command again with the cursor in `grow` updates the same panel to "Aquascope: lines 8–11" and `grow`'s lines; there is still one Aquascope panel. After the panel is closed, the next run opens a new one.
+- [x] AC3: After AC2, running the command with the cursor on the `struct` line leaves no diagram in the panel; it reports the no-function message.
+- [x] AC4: For `04_push_while_borrowed_fail`, the boundary marker before `v` in `v.push(4);` shows the write permission as missing, drawn as the Book draws a missing permission (checked by hand).
+- [x] AC5: After an unsaved edit inside `main`, the panel reports the edited text.
+- [x] AC6: On `n1_non_ascii`, the boundary marker for the moved `s` sits directly before `s` in `let t = s;`, after the emoji on that line (checked by hand).
+- [x] AC7: A run cancelled from the progress notification, and a run started while the panel has focus, leave the panel's diagram as it was (checked by hand).
+- [x] AC8: The panel's HTML carries a content security policy whose script and resource sources are only the extension's own files, and the panel draws with the machine's network turned off (checked by hand).
+- [x] AC9: In the Dark Modern and Light Modern themes, the code, step tables and permission letters are readable and missing permissions are distinguishable from held ones (checked by hand).
+- [x] AC10: The vendored embed folder holds the origin note and the MIT licence, and `vsce ls` lists the embed files.
+- [x] AC11: Integration tests cover AC1, AC2, AC3 and AC5 and pass in `npm test`.
+- [x] AC12: In a panel narrower than 800 pixels, each step table sits after its line, at the same height, with the arrow pointing at the line's end, and the panel scrolls sideways to show it (checked by hand; D6).
 
 ## Out of scope
 
