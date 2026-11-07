@@ -5,6 +5,7 @@ import { classifyBuildErrors, Failure, parseCompilerErrors, runFailure } from '.
 import { outputChannel, run, withProgress } from './runner';
 import { detectEdition, writeCrate } from './scratchCrate';
 import { selectAtCursor, Cursor } from './select';
+import { editorFor } from './target';
 import { resolveToolchain, runEnvironment } from './toolchain';
 import type { AnalysisOutput, AnalyzeErrorCode, AnalyzeResult } from './types';
 import type { VisualizationPanel } from '../visualization/panel';
@@ -16,8 +17,12 @@ const WITH_DETAILS: AnalyzeErrorCode[] = ['singleFileLimit', 'compileErrors', 't
 /** The run in progress; a new run cancels it, so only the latest cursor position is analysed. */
 let inFlight: vscode.CancellationTokenSource | undefined;
 
-export async function analyzeAtCursor(context: vscode.ExtensionContext, panel: VisualizationPanel): Promise<AnalyzeResult> {
-  const editor = vscode.window.activeTextEditor;
+/**
+ * Analyses the function at the cursor. With `target`, the URI the editor title bar passes (feature 006 R3),
+ * the editor showing that document is analysed whichever group has focus; without it, the active editor.
+ */
+export async function analyzeAtCursor(context: vscode.ExtensionContext, panel: VisualizationPanel, target?: vscode.Uri): Promise<AnalyzeResult> {
+  const editor = target ? editorFor(target) : vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'rust') {
     return report(error('noRustEditor', 'Open a Rust file and put the cursor inside a function, then run "Aquascope: Analyze Function at Cursor".'), panel);
   }
