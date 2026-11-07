@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { analyzeAtCursor } from './analysis/command';
 import { outputChannel } from './analysis/runner';
+import { startFocusRecord } from './analysis/target';
 import { PanelReport, VisualizationPanel } from './visualization/panel';
 
 /** What `activate` returns: a way for the integration tests to see what the panel drew (004 R10). */
@@ -16,7 +17,11 @@ export function activate(context: vscode.ExtensionContext): AquascopeApi {
     vscode.commands.registerCommand('aquascope.hello', () => {
       void vscode.window.showInformationMessage('Hello from Aquascope');
     }),
-    vscode.commands.registerCommand('aquascope.analyzeAtCursor', () => analyzeAtCursor(context, panel)),
+    // The editor title bar passes its document's URI (feature 006 R3); the palette and keybindings pass nothing.
+    vscode.commands.registerCommand('aquascope.analyzeAtCursor', (target?: unknown) =>
+      analyzeAtCursor(context, panel, target instanceof vscode.Uri ? target : undefined),
+    ),
+    startFocusRecord(),
   );
   return { latestPanelReport: () => panel.latestReport(), isPanelOpen: () => panel.isOpen };
 }
