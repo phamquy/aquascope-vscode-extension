@@ -1,7 +1,7 @@
 ---
 id: T-030
 title: "Make the test run strict about the toolchain on request"
-status: review
+status: done
 priority: medium
 feature: "005-package-per-platform-vsix"
 created: 2026-11-07
