@@ -27,7 +27,7 @@ The feature is one shell script, `scripts/package-platform.sh`, which `npm run p
 
 A `trap` removes the root `aquascope/` on every exit, success or failure. The previous VSIX for the target is deleted at the start, so a VSIX that exists afterwards comes from this run.
 
-Then `scripts/check-vsix.sh` checks the package against AC1 to AC3, reading it with `zipinfo`:
+Then `scripts/check-vsix.mjs` checks the package against AC1 to AC3, reading it with `zipinfo`:
 
 - the manifest's target platform;
 - the required files, with their executable bits;
@@ -52,7 +52,7 @@ None. The feature changes how the extension is built and packaged, not what it c
 
 - `LICENSE`: MIT, "Copyright (c) 2026 Jack Pham" (D5).
 - `media/aquascope-embed/THIRD-PARTY-NOTICES`, with a line in that folder's `README.md`.
-- `scripts/package-platform.sh`, `scripts/crate-notices.mjs` and `scripts/check-vsix.sh`.
+- `scripts/package-platform.sh`, `scripts/bundle-paths.sh` (the trim and keep lists, shared), `scripts/crate-notices.mjs` and `scripts/check-vsix.mjs` (Node rather than shell, for the comparison with the component manifests).
 - `package.json`: `"package": "bash scripts/package-platform.sh"`.
 - `.gitignore`: `build/` and `aquascope/`. `.vscodeignore`: `build/**`.
 - `src/test/runTest.ts` and `src/test/suite/harness.ts`: the `AQUASCOPE_REQUIRE_TOOLCHAIN` mode.
@@ -65,12 +65,12 @@ None. The feature changes how the extension is built and packaged, not what it c
 - **Disk and time.** The first run downloads the nightly with `rustc-dev` (about 1 GB) and builds Aquascope (a few minutes and several GB in `build/`). Nothing deletes `build/` automatically; the README says it can be removed.
 - **Notice completeness.** Crates and npm packages that ship no licence text get their licence identifier only. The notices are as complete as the packages' own metadata, and the script lists the crates it could not find a text for.
 - **Network at development time.** The build, and fetching the npm packages for the embed's notice, reach rustup, crates.io, GitHub and the npm registry, and each needs your approval when it first runs. The packaged extension never does (R8).
-- **Size.** Spike 002 measured 120 MB for the binaries and toolchain alone. The licence files and the extension add a few MB, inside the 150 MB limit, and `check-vsix.sh` enforces it.
+- **Size.** Spike 002 measured 120 MB for the binaries and toolchain alone. The licence files and the extension add a few MB, inside the 150 MB limit, and `check-vsix.mjs` enforces it.
 
 ## Test strategy
 
 - **Harness:** the strict toolchain mode gets unit tests in the existing suite (`harness.test.ts`): it fails instead of skipping when it is set and no bundle is found, and the default still skips.
-- **Package checks:** `check-vsix.sh` turns AC1 to AC3 into automatic checks at the end of every packaging run.
+- **Package checks:** `check-vsix.mjs` turns AC1 to AC3 into automatic checks at the end of every packaging run.
 - **Failure paths, run once by hand and recorded in the task notes:** AC4, with a deliberately failing test and with the bundle path pointed elsewhere, then no VSIX and no root `aquascope/` afterwards; and AC6, with the pin's commit and then its nightly changed.
 - **The install check** of AC5 is by hand, on a macOS account without rustup, with a browser-downloaded VSIX and the network off.
 
@@ -80,7 +80,7 @@ None. The feature changes how the extension is built and packaged, not what it c
 | --- | --- | --- |
 | `scripts/package-platform.sh` | R1–R6, R8, R9 | Platform mapping; pin and checkout checks; rustup install and `cargo install`; manifest-based copy and trim; staging layout; strict test run; root `aquascope/` only for `vsce`, removed by `trap`; old VSIX deleted first; path and size printed |
 | `scripts/crate-notices.mjs` | R7, D4 | Dependency graph of `aquascope_front` from `cargo metadata`; licence texts from the cargo cache, or the identifier; crates without a text listed |
-| `scripts/check-vsix.sh` | R6, R7, AC1–AC3 | Target platform in the manifest; required executables; toolchain files against the manifests and trim list; licence files; size of at most 150 MB |
+| `scripts/check-vsix.mjs` | R6, R7, AC1–AC3 | Target platform in the manifest; required executables; toolchain files against the manifests and trim list; licence files; size of at most 150 MB |
 | `src/test/runTest.ts`, `harness.ts` | R5 | `AQUASCOPE_REQUIRE_TOOLCHAIN`: a missing bundle stops the run, and `requireToolchain` fails instead of skipping |
 | `LICENSE`, `media/aquascope-embed/THIRD-PARTY-NOTICES` | R7, D5 | The extension's licence; the embed's libraries with version, copyright line and licence |
 
@@ -88,9 +88,9 @@ None. The feature changes how the extension is built and packaged, not what it c
 
 | Criterion | Check |
 | --- | --- |
-| AC1 | `check-vsix.sh`: `TargetPlatform="darwin-arm64"` in `extension.vsixmanifest`; the five required files present with executable bits (`zipinfo`); every other file under `extension/aquascope/toolchain/` is in a component manifest and not in the trim list, or is a kept licence file |
-| AC2 | `check-vsix.sh`: VSIX size at most 150 MB |
-| AC3 | `check-vsix.sh`: `extension/LICENSE`, the kept Rust licence files, `extension/aquascope/LICENSE`, `extension/aquascope/THIRD-PARTY-NOTICES` naming every crate of the graph, `extension/media/aquascope-embed/THIRD-PARTY-NOTICES` |
+| AC1 | `check-vsix.mjs`: `TargetPlatform="darwin-arm64"` in `extension.vsixmanifest`; the five required files present with executable bits (`zipinfo`); every other file under `extension/aquascope/toolchain/` is in a component manifest and not in the trim list, or is a kept licence file |
+| AC2 | `check-vsix.mjs`: VSIX size at most 150 MB |
+| AC3 | `check-vsix.mjs`: `extension/LICENSE`, the kept Rust licence files, `extension/aquascope/LICENSE`, `extension/aquascope/THIRD-PARTY-NOTICES` naming every crate of the graph, `extension/media/aquascope-embed/THIRD-PARTY-NOTICES` |
 | AC4 | By hand, recorded: a test made to fail, then `AQUASCOPE_TEST_TOOLCHAIN` pointed at a missing path; each stops the script with no VSIX and no root `aquascope/` |
 | AC5 | By hand: a macOS account without rustup, the network off, the VSIX downloaded through a browser (from a draft GitHub release), installed into a fresh profile, `main` of `05_method_mut_borrow` drawn, no security dialog |
 | AC6 | By hand, recorded: the pin's commit changed, then its nightly changed; each stops before building and names the mismatch. The platform check by reading the script |

@@ -15,6 +15,10 @@ The result opens in an **Aquascope** panel beside the editor, drawn as in the Ru
 | `aquascope.toolchainPath` | empty | Folder holding the Aquascope tools and the pinned Rust toolchain, laid out as `bin/cargo-aquascope`, `bin/aquascope-driver` and `toolchain/`. Empty uses the copy shipped with the extension. Read from user settings only, so a workspace cannot point the extension at other programs. |
 | `aquascope.analysisTimeoutSeconds` | `60` | Seconds an analysis may run before it is stopped (minimum 5). A run can also be cancelled from its progress notification. |
 
+## Installing
+
+This version is packaged for Macs with Apple silicon (darwin-arm64) and is installed from its VSIX file: in VS Code, run **Extensions: Install from VSIX…** from the Command Palette and choose `aquascope-vscode-extension-darwin-arm64-<version>.vsix`. The package carries Aquascope and the pinned Rust toolchain it needs, so nothing else has to be installed, `aquascope.toolchainPath` can stay empty, and nothing is downloaded when it runs.
+
 ## Development
 
 ```sh
@@ -23,4 +27,16 @@ npm run compile
 # press F5 in VS Code
 ```
 
-Until the toolchain ships inside the extension (feature 005), build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. `npm test` finds that bundle on its own.
+For development without a package, build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. `npm test` finds that bundle on its own.
+
+### Building a package
+
+`npm run package` builds the VSIX for the machine it runs on; this version supports darwin-arm64 only. It needs rustup, git, the Xcode Command Line Tools, Node and npm, and the network while it builds. It works through five stages and stops with a message if any fails:
+
+1. It checks that the Aquascope checkout matches the pin in `spikes/002-toolchain-bundling/pin.env`.
+2. It installs the pinned nightly and builds Aquascope.
+3. It assembles the trimmed toolchain with its licence files.
+4. It runs the full test suite against exactly that toolchain.
+5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, and prints its path and size (about 125 MB).
+
+The first run downloads the nightly and Aquascope's dependencies, about 1 GB, and takes a few minutes; later runs take under a minute. All the work happens in `build/`, which git ignores and which can be deleted at any time to free several GB.
