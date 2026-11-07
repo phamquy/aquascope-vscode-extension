@@ -1,7 +1,7 @@
 ---
 id: T-035
 title: "Add the button to the editor title bar and close the feature"
-status: review
+status: done
 priority: medium
 feature: "006-editor-title-button"
 created: 2026-11-07
