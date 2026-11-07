@@ -1,7 +1,7 @@
 ---
 id: T-033
 title: "Install check and close the feature"
-status: review
+status: done
 priority: medium
 feature: "005-package-per-platform-vsix"
 created: 2026-11-07
