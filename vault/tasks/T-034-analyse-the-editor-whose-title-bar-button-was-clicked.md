@@ -1,7 +1,7 @@
 ---
 id: T-034
 title: "Analyse the editor whose title-bar button was clicked"
-status: review
+status: done
 priority: medium
 feature: "006-editor-title-button"
 created: 2026-11-07
