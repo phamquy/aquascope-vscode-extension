@@ -58,7 +58,7 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 <!-- SAMPLE -->
 
 - Pinned to Aquascope v0.4.0 and `nightly-2026-05-01` (from that tag's `rust-toolchain.toml`). Building `cargo-aquascope` needs that nightly with `rustc-dev`; running it needs only the nightly's rustc, cargo and rust-std (spike 002).
-- `cargo-aquascope` is not on crates.io; CI builds it from the git tag for each platform.
+- `cargo-aquascope` is not on crates.io; the packaging script builds it from the git tag on a machine of each platform (feature 005), and CI is to run that script once more platforms are packaged.
 - VS Code 1.90 or newer.
 - Platforms in order: darwin-arm64 (verified), linux-x64, win32-x64, then linux-arm64 and darwin-x64. Only darwin-arm64 has been run.
 - Zero install: the extension bundles `cargo-aquascope` and a trimmed nightly toolchain, one VSIX per platform (about 120 MB on darwin-arm64). Users need no rustup and nothing on their `PATH`.
@@ -106,4 +106,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 002 | Toolchain bundling spike                   | implemented |
 | 003 | Run analysis on the function at the cursor | implemented |
 | 004 | Render the visualization in a webview      | implemented |
-| 005 | Package per-platform VSIX with toolchain   | draft       |
+| 005 | Package per-platform VSIX with toolchain   | approved    |
