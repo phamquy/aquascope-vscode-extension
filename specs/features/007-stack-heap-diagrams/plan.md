@@ -30,7 +30,7 @@ The new command, `aquascope.showStackAndHeap`, takes the active Rust editor's te
 
 T-036's findings may refine this, for example if failed assertions or `process::exit` behave differently from a panic. The command shares 003's single in-flight run, so a new run of either view cancels the other.
 
-**Drawing the trace (R4, R8).** A pure function shapes the trace for the embed, as `embedInput` does for permissions. It keeps the whole file as the code, because the trace's positions refer to the whole file. It converts every position from Aquascope's character columns to UTF-16, reusing 003's conversion. And it applies D6's limit: when the trace has more steps than the limit, it keeps the first steps up to the limit and sets the result to success, so the renderer does not mark the last kept step as failed, and it returns a note that the panel shows above the diagram.
+**Drawing the trace (R4, R8).** A pure function shapes the trace for the embed, as `embedInput` does for permissions. It keeps the whole file as the code, because the trace's positions refer to the whole file. It converts every position from Aquascope's character columns to UTF-16, reusing 003's conversion. And it applies D6's limit: when the trace has more steps than the limit, it keeps the first steps up to the limit and sets the result to success, so the renderer does not mark the last kept step as failed, and it returns a note that the panel shows above the diagram. A trace whose result is undefined behaviour keeps that result, so the renderer marks its last step as failed, and the note names the undefined behaviour (spec D4, revised by T-036).
 
 The page builder gains an interpreter variant, with `data-operations` set to `["interpreter"]` and the trace as the `interpreter` response. The panel gains `showTrace`, titled "Aquascope: stack and heap" and sharing the single panel with the permissions view (D5). The page script's report counts the drawn steps and step markers, so the tests can see what the renderer drew, as feature 004's report counts permission widgets. The content security policy stays as it is unless the panel tests report a violation. The interpreter view draws its arrows with SVG and inline styles, which the policy already allows.
 
@@ -104,4 +104,5 @@ The page builder gains an interpreter variant, with `data-operations` set to `["
 | AC7 | `check-vsix.mjs` on every package; the size is recorded in T-038's note |
 | AC8 | AC1 to AC5 and AC10 in `npm test` |
 | AC9 | By hand, T-041: the Book's chapter 4.1 example, Dark Modern and Light Modern |
-| AC10 | `stackHeap.test.ts`: a loop longer than the limit; the report shows exactly the limit and the note. The limit itself is unit-tested in `traceInput.ts` |
+| AC10 | `stackHeap.test.ts`: a function called in a loop often enough for more than 100 steps; the report shows exactly 100 and the note. The limit itself is unit-tested in `traceInput.ts` |
+| AC11 | `stackHeap.test.ts`: fixture `i4_use_after_free`; the report shows four steps, the last failed, and the note names a use after free |
