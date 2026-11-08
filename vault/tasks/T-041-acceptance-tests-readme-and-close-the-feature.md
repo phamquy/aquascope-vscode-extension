@@ -1,7 +1,7 @@
 ---
 id: T-041
 title: "Acceptance tests, README and close the feature"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-08
