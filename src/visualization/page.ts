@@ -3,9 +3,13 @@
 // has no inline script.
 import * as vscode from 'vscode';
 import type { EmbedInput } from './embedInput';
+import type { TraceInput } from './traceInput';
 
-/** What the panel shows: the analysis, or a message in its place (R5). */
-export type PageContent = { kind: 'analysis'; input: EmbedInput } | { kind: 'message'; text: string };
+/** What the panel shows: the analysis, a program's trace (feature 007), or a message in their place (R5). */
+export type PageContent =
+  | { kind: 'analysis'; input: EmbedInput }
+  | { kind: 'trace'; input: TraceInput }
+  | { kind: 'message'; text: string };
 
 /** URIs of the page's files as the webview sees them, and the webview's own source for the policy. */
 export interface PageResources {
@@ -18,6 +22,9 @@ export interface PageResources {
 
 /** The embed's configuration (D3): step tables and boundaries, nothing else. */
 export const EMBED_CONFIG = { stepper: true, boundaries: true } as const;
+
+/** The interpreter view's configuration (feature 007): the renderer's defaults, code shown with its markers. */
+export const TRACE_CONFIG = {} as const;
 
 /**
  * The panel's content security policy (R6, D7): scripts and stylesheets only from the webview's own
@@ -47,12 +54,17 @@ export function pageResources(webview: vscode.Webview, extensionUri: vscode.Uri)
  */
 export function panelPage(content: PageContent, res: PageResources, renderId: number): string {
   const json = (value: unknown) => attr(JSON.stringify(value));
+  const embed = (code: string, operation: string, response: unknown, config: unknown) =>
+    `<div class="aquascope-embed" data-code="${json(code)}" data-operations="${json([operation])}"` +
+    ` data-responses="${json({ [operation]: response })}" data-config="${json(config)}" data-no-interact="true"></div>`;
   const body =
     content.kind === 'analysis'
-      ? `<div class="aquascope-embed" data-code="${json(content.input.code)}" data-operations="${json(['permissions'])}"` +
-        ` data-responses="${json({ permissions: content.input.response })}" data-config="${json(EMBED_CONFIG)}" data-no-interact="true"></div>`
-      : `<p class="aquascope-message">${text(content.text)}</p>`;
-  const embedScript = content.kind === 'analysis' ? `\n    <script src="${attr(res.embedScript)}"></script>` : '';
+      ? embed(content.input.code, 'permissions', content.input.response, EMBED_CONFIG)
+      : content.kind === 'trace'
+        ? content.input.notes.map((note) => `<p class="aquascope-note">${text(note)}</p>\n    `).join('') +
+          embed(content.input.code, 'interpreter', content.input.response, TRACE_CONFIG).replace('<div ', `<div data-steps="${content.input.steps}" `)
+        : `<p class="aquascope-message">${text(content.text)}</p>`;
+  const embedScript = content.kind === 'message' ? '' : `\n    <script src="${attr(res.embedScript)}"></script>`;
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
