@@ -13,7 +13,7 @@ Spec: [[specs/features/007-stack-heap-diagrams/spec.md]]
 
 ## Done when
 
-- [ ] `stackHeap.test.ts` passes AC1 to AC5 and AC10 in `npm test`
+- [ ] `stackHeap.test.ts` passes AC1 to AC5, AC10 and AC11 in `npm test`
 - [ ] The README describes the command and its limits
 - [ ] AC6 and AC9 are checked by hand and recorded
 - [ ] The spec's criteria are ticked and feature 007 is `implemented` in the spec and `specs/product.md` (R7, AC8)
