@@ -1,7 +1,7 @@
 ---
 id: T-037
 title: "Check the Marketplace size limit and record the ADR"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-08
