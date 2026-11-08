@@ -1,7 +1,7 @@
 ---
 id: T-038
 title: "Ship the Miri-built standard library in the bundle"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-08
