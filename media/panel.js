@@ -32,6 +32,21 @@
   // Read before the embed starts: it renames the element's class once it has taken the data.
   const embed = document.querySelector('.aquascope-embed');
   const code = JSON.parse(embed.dataset.code);
+
+  if (document.body.dataset.kind === 'trace') {
+    // Feature 007: one memory diagram and one step marker in the code per drawn step, and a red marker for
+    // a step that reached undefined behaviour. The notes above the diagram are reported with them.
+    const steps = Number(embed.dataset.steps);
+    const notes = [...document.querySelectorAll('.aquascope-note')].map((n) => n.textContent);
+    const counts = () => ({
+      steps: document.querySelectorAll('.interpreter .step').length,
+      markers: document.querySelectorAll('.cm-editor .step-marker').length,
+      failed: document.querySelectorAll('.step-header .step-marker.fail').length,
+    });
+    reportWhenDrawn(counts, (now) => now.steps === steps && now.markers === steps, () => ({ type: 'trace', notes }));
+    return;
+  }
+
   const [entry] = JSON.parse(embed.dataset.responses).permissions;
   // What the embed should draw: one step widget per step, and one marker per distinct boundary location.
   const expected = entry.Ok
@@ -44,25 +59,31 @@
     stepWidgets: document.querySelectorAll('.perm-step-widget').length,
     boundaryMarkers: document.querySelectorAll('.permission-stack').length,
   });
+  reportWhenDrawn(
+    counts,
+    (now) => now.stepWidgets === expected.stepWidgets && now.boundaryMarkers === expected.boundaryMarkers,
+    () => ({ type: 'rendered' }),
+  );
 
-  // The embed draws on load, and React fills in the step widgets shortly after, so report as soon as the
-  // page holds what it should. Timers are throttled to about one a second while the window is in the
+  // The embed draws on load, and React fills in the widgets shortly after, so report as soon as the page
+  // holds what it should. Timers are throttled to about one a second while the window is in the
   // background, so the timer only bounds a page that never matches, and then reports what it has.
-  let sent = false;
-  let fallback;
-  const observer = new MutationObserver(() => {
-    const now = counts();
-    if (now.stepWidgets === expected.stepWidgets && now.boundaryMarkers === expected.boundaryMarkers) send();
-  });
-  const send = () => {
-    if (sent) return;
-    sent = true;
-    observer.disconnect();
-    clearTimeout(fallback);
-    vscode.postMessage({ type: 'rendered', renderId, code, ...counts(), theme: theme(), problems });
-  };
-  observer.observe(document.body, { childList: true, subtree: true });
-  window.addEventListener('load', () => {
-    fallback = setTimeout(send, 3000);
-  });
+  function reportWhenDrawn(counts, drawn, fields) {
+    let sent = false;
+    let fallback;
+    const observer = new MutationObserver(() => {
+      if (drawn(counts())) send();
+    });
+    const send = () => {
+      if (sent) return;
+      sent = true;
+      observer.disconnect();
+      clearTimeout(fallback);
+      vscode.postMessage({ ...fields(), renderId, code, ...counts(), theme: theme(), problems });
+    };
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('load', () => {
+      fallback = setTimeout(send, 3000);
+    });
+  }
 })();

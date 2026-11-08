@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { classifyInterpretFailure, parseInterpreterOutput } from '../../analysis/interpret';
 import { parseCompilerErrors } from '../../analysis/errors';
 import type { StackHeapResult } from '../../analysis/types';
+import type { AquascopeApi } from '../../extension';
 import { fixture, fixtureData, requireMiri } from './harness';
 
 const errorsOf = (name: string) => parseCompilerErrors(fixtureData(`${name}.check.jsonl`));
@@ -67,6 +68,7 @@ suite('explaining a run without a trace (feature 007 R5)', () => {
 suite('Show Stack and Heap, end to end (feature 007 R1 to R5)', function () {
   this.timeout(60_000);
   const COMMAND = 'aquascope.showStackAndHeap';
+  let api: AquascopeApi;
 
   async function runOn(file: string): Promise<StackHeapResult> {
     await vscode.window.showTextDocument(fixture(file), { viewColumn: vscode.ViewColumn.One });
@@ -76,22 +78,29 @@ suite('Show Stack and Heap, end to end (feature 007 R1 to R5)', function () {
   suiteSetup(async function () {
     const bundle = requireMiri(this);
     await vscode.workspace.getConfiguration('aquascope').update('toolchainPath', bundle, vscode.ConfigurationTarget.Global);
+    const ext = vscode.extensions.getExtension<AquascopeApi>('jackpham.aquascope-vscode-extension');
+    assert.ok(ext);
+    api = await ext.activate();
   });
   suiteTeardown(async () => {
     await vscode.workspace.getConfiguration('aquascope').update('toolchainPath', undefined, vscode.ConfigurationTarget.Global);
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 
-  test('runs the move example and returns its four steps', async () => {
+  test('runs the move example, returns its four steps and draws them in the panel (R4)', async () => {
     const result = await runOn('01_move_string.rs');
     assert.ok(result.kind === 'ok', JSON.stringify(result));
     assert.strictEqual(result.trace.steps.length, 4);
     assert.deepStrictEqual(result.trace.steps.map((s) => s.stack.frames[0].location.start.line), [2, 3, 4, 5]);
+    const report = await api.latestPanelReport();
+    assert.ok(report.type === 'trace' && report.steps === 4 && report.markers === 4, JSON.stringify(report));
   });
 
-  test('a file without main gets the noMain message', async () => {
+  test('a file without main gets the noMain message, which replaces the diagram in the open panel (R5)', async () => {
     const result = await runOn('i6_no_main.rs');
     assert.ok(result.kind === 'error' && result.code === 'noMain', JSON.stringify(result));
+    const report = await api.latestPanelReport();
+    assert.ok(report.type === 'message' && report.text === result.message, JSON.stringify(report));
   });
 
   test('a panicking program gets the programFailed message', async () => {

@@ -1,7 +1,10 @@
-// Shared helpers for the test suites: the fixture workspace and the toolchain bundle (runTest.ts).
+// Shared helpers for the test suites: the fixture workspace, the toolchain bundle (runTest.ts) and captured traces.
 import * as path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import * as vscode from 'vscode';
+import * as assert from 'assert';
+import { parseInterpreterOutput } from '../../analysis/interpret';
+import type { CharRange, MTrace } from '../../analysis/types';
 
 /** Root of the toolchain bundle for end-to-end tests, or undefined when none was found. */
 export const testToolchain: string | undefined = process.env.AQUASCOPE_TEST_TOOLCHAIN;
@@ -60,4 +63,17 @@ export function requireMiri(ctx: Mocha.Context, env: NodeJS.ProcessEnv = process
     ctx.skip();
   }
   return root;
+}
+
+/** A captured trace. */
+export function capturedTrace(name: string): MTrace<CharRange> {
+  const parsed = parseInterpreterOutput(fixtureData(`${name}.interp.json`));
+  assert.ok(parsed.kind === 'trace', name);
+  return parsed.trace;
+}
+
+/** A trace of `count` steps, made by repeating a captured trace's steps, ending as `result`. */
+export function longTrace(count: number, result: MTrace<CharRange>['result'] = { type: 'Success' }): MTrace<CharRange> {
+  const steps = capturedTrace('05_method_mut_borrow').steps;
+  return { steps: Array.from({ length: count }, (_, i) => structuredClone(steps[i % steps.length])), result };
 }

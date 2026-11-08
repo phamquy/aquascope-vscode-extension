@@ -73,20 +73,20 @@ export async function analyzeAtCursor(context: vscode.ExtensionContext, panel: V
 }
 
 /**
- * Runs the active Rust editor's program in Aquascope's interpreter (feature 007 R1, R2). Until the panel
- * draws traces (T-040), a trace is summarised in a notification and errors are notifications.
+ * Runs the active Rust editor's program in Aquascope's interpreter and draws its stack and heap in the
+ * Aquascope panel (feature 007 R1, R2, R4).
  */
-export async function showStackAndHeap(context: vscode.ExtensionContext): Promise<StackHeapResult> {
+export async function showStackAndHeap(context: vscode.ExtensionContext, panel: VisualizationPanel): Promise<StackHeapResult> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'rust') {
-    return reportTrace(error('noRustEditor', 'Open a Rust file with a `main` function, then run "Aquascope: Show Stack and Heap".'));
+    return reportTrace(error('noRustEditor', 'Open a Rust file with a `main` function, then run "Aquascope: Show Stack and Heap".'), panel);
   }
   const config = vscode.workspace.getConfiguration('aquascope');
   const configured = config.get<string>('toolchainPath');
   const toolchain = resolveToolchain(configured, context.extensionPath);
-  if (!toolchain.ok) return reportTrace(error('toolNotFound', toolchain.message));
+  if (!toolchain.ok) return reportTrace(error('toolNotFound', toolchain.message), panel);
   const miri = resolveMiriSysroot(toolchain.root, configured);
-  if (!miri.ok) return reportTrace(error('toolNotFound', miri.message));
+  if (!miri.ok) return reportTrace(error('toolNotFound', miri.message), panel);
 
   const { document } = editor;
   const job = {
@@ -98,18 +98,22 @@ export async function showStackAndHeap(context: vscode.ExtensionContext): Promis
     cargo: toolchain.cargo,
     sysroot: miri.sysroot,
   };
-  return reportTrace(await runExclusive('Aquascope: running the program', (token) => interpret(job, token)));
+  return reportTrace(await runExclusive('Aquascope: running the program', (token) => interpret(job, token)), panel, job.source);
 }
 
-/** Shows the outcome of a stack-and-heap run and returns it unchanged, for the tests (feature 007). */
-function reportTrace(result: StackHeapResult): StackHeapResult {
+/**
+ * Shows the outcome of a stack-and-heap run and returns it unchanged, for the tests (feature 007 R4, R5).
+ * A trace goes to the panel; errors are notifications that also replace the diagram in an open panel, as
+ * for the permissions view, except when nothing ran or the user cancelled.
+ */
+function reportTrace(result: StackHeapResult, panel: VisualizationPanel, source?: string): StackHeapResult {
   if (result.kind === 'ok') {
-    const steps = result.trace.steps.length;
-    void vscode.window.showInformationMessage(`Aquascope: the program ran in ${steps} step${steps === 1 ? '' : 's'}.`);
+    if (source !== undefined) panel.showTrace(result.trace, source);
     return result;
   }
   if (result.code !== 'noRustEditor') outputChannel().appendLine(`  result: ${result.code}: ${result.message}`);
   if (result.code === 'cancelled') return result;
+  if (result.code !== 'noRustEditor') panel.showMessage(result.message);
   const actions = WITH_DETAILS.includes(result.code) ? ['Show Output'] : [];
   void vscode.window.showErrorMessage(`Aquascope: ${result.message}`, ...actions).then((choice) => {
     if (choice) outputChannel().show(true);

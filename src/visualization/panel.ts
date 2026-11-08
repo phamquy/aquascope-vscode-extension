@@ -1,7 +1,8 @@
-// The single Aquascope panel (feature 004, R1, R4, R5, R10).
+// The single Aquascope panel (feature 004, R1, R4, R5, R10), shared by the stack-and-heap view (feature 007, D5).
 import * as vscode from 'vscode';
-import type { AnalysisOutput } from '../analysis/types';
+import type { AnalysisOutput, CharRange, MTrace } from '../analysis/types';
 import { embedInput } from './embedInput';
+import { traceInput } from './traceInput';
 import { PageContent, pageResources, panelPage } from './page';
 
 export const VIEW_TYPE = 'aquascope.visualization';
@@ -9,6 +10,8 @@ export const VIEW_TYPE = 'aquascope.visualization';
 /** What the page reports once it has drawn (R10); posted by `media/panel.js`. */
 export type PanelReport =
   | { type: 'rendered'; renderId: number; code: string; stepWidgets: number; boundaryMarkers: number; theme: 'light' | 'dark'; problems: string[] }
+  /** A trace: memory diagrams drawn, step markers in the code, failed markers, and the notes shown (feature 007). */
+  | { type: 'trace'; renderId: number; code: string; steps: number; markers: number; failed: number; notes: string[]; theme: 'light' | 'dark'; problems: string[] }
   | { type: 'message'; renderId: number; text: string; theme: 'light' | 'dark'; problems: string[] };
 
 /**
@@ -32,6 +35,15 @@ export class VisualizationPanel implements vscode.Disposable {
     const input = embedInput(output, source);
     if (input.dropped.length > 0) this.log(`  left out of the diagram, outside the function's lines: ${input.dropped.join(', ')}`);
     this.show(input.title, { kind: 'analysis', input }, true);
+  }
+
+  /**
+   * Draws a program's trace in the same panel, replacing whichever view it showed, and opening it if it is
+   * closed (feature 007 R4, D5). At most `STEP_LIMIT` steps are drawn, with a note saying so (R8).
+   */
+  showTrace(trace: MTrace<CharRange>, source: string): void {
+    const input = traceInput(trace, source);
+    this.show(input.title, { kind: 'trace', input }, true);
   }
 
   /** Replaces the diagram with a message, if the panel is open; never opens it (R5). */

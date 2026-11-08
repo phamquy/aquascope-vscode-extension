@@ -1,5 +1,5 @@
 // Parses the tool's output and selects the body at the cursor (R7).
-import { forEachPosition } from './positions';
+import { convertColumnsToUtf16 } from './positions';
 import type { AnalysisOutput, AquascopeEntry, CharPos, CharRange } from './types';
 
 /** A VS Code position: zero-based line, column in UTF-16 code units. */
@@ -31,7 +31,7 @@ export function selectAtCursor(stdout: string, source: string, cursor: Cursor): 
   if (!Array.isArray(entries) || !entries.every(isEntry)) {
     return { kind: 'invalid', reason: 'the output is not a list of analysis results' };
   }
-  convertColumns(entries, source);
+  convertColumnsToUtf16(entries, source);
 
   const at: CharPos = { line: cursor.line, column: cursor.character };
   const containing = entries.flatMap((e) => ('Ok' in e && contains(e.Ok.body_range, at) ? [e.Ok] : []));
@@ -59,28 +59,3 @@ function isEntry(e: unknown): e is AquascopeEntry {
 
 const compare = (a: CharPos, b: CharPos): number => a.line - b.line || a.column - b.column;
 const contains = (r: CharRange, p: CharPos): boolean => compare(r.start, p) <= 0 && compare(p, r.end) <= 0;
-
-/**
- * Rewrites every `{line, column}` in place from Unicode characters to UTF-16 code units. The two differ
- * only on lines with characters outside the Basic Multilingual Plane (surrogate pairs), such as emoji.
- */
-function convertColumns(root: unknown, source: string): void {
-  const lines = source.split('\n');
-  const wide = new Set<number>();
-  lines.forEach((text, i) => /[\uD800-\uDFFF]/.test(text) && wide.add(i));
-  if (wide.size === 0) return;
-  forEachPosition(root, (pos) => {
-    if (wide.has(pos.line)) pos.column = utf16Column(lines[pos.line], pos.column);
-  });
-}
-
-function utf16Column(text: string, column: number): number {
-  let units = 0;
-  let chars = 0;
-  for (const ch of text) {
-    if (chars === column) return units;
-    units += ch.length;
-    chars++;
-  }
-  return units + (column - chars);
-}

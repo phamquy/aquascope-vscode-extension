@@ -2,8 +2,9 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { selectAtCursor } from '../../analysis/select';
 import { embedInput, EmbedInput } from '../../visualization/embedInput';
-import { contentSecurityPolicy, EMBED_CONFIG, PageContent, pageResources, panelPage, PageResources } from '../../visualization/page';
-import { fixtureData, fixtureText } from './harness';
+import { contentSecurityPolicy, EMBED_CONFIG, PageContent, pageResources, panelPage, PageResources, TRACE_CONFIG } from '../../visualization/page';
+import { traceInput } from '../../visualization/traceInput';
+import { capturedTrace, fixtureData, fixtureText } from './harness';
 
 const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
 const RESOURCES: PageResources = {
@@ -116,6 +117,26 @@ suite('panel page (004 R2, R6, R10)', () => {
     const html = panelPage({ kind: 'analysis', input }, RESOURCES, 1);
     assert.strictEqual(JSON.parse(dataAttr(html, 'code') ?? ''), input.code);
     assert.ok(!html.includes('<b>'));
+  });
+
+  test('passes a trace to the interpreter view with its step count, notes before the diagram (feature 007 R4)', () => {
+    const source = fixtureText('i4_use_after_free.rs');
+    const input = traceInput(capturedTrace('i4_use_after_free'), source);
+    const html = panelPage({ kind: 'trace', input }, RESOURCES, 3);
+    assert.strictEqual(dataAttr(html, 'operations'), '["interpreter"]');
+    assert.deepStrictEqual(JSON.parse(dataAttr(html, 'responses') ?? ''), { interpreter: input.response });
+    assert.strictEqual(JSON.parse(dataAttr(html, 'code') ?? ''), input.code);
+    assert.strictEqual(dataAttr(html, 'config'), JSON.stringify(TRACE_CONFIG));
+    assert.strictEqual(dataAttr(html, 'steps'), '4');
+    assert.strictEqual(dataAttr(html, 'no-interact'), 'true');
+    assert.match(html, /data-kind="trace"/);
+    assert.ok(html.indexOf('class="aquascope-note"') < html.indexOf('class="aquascope-embed"'), 'the note comes first');
+    assert.ok(html.includes(`<script src="${RESOURCES.embedScript}"></script>`));
+  });
+
+  test('escapes the notes above a trace', () => {
+    const input = { ...traceInput(capturedTrace('01_move_string'), fixtureText('01_move_string.rs')), notes: ['a <b> & "c"'] };
+    assert.ok(panelPage({ kind: 'trace', input }, RESOURCES, 1).includes('<p class="aquascope-note">a &lt;b&gt; &amp; "c"</p>'));
   });
 
   test('shows a message without loading the embed', () => {
