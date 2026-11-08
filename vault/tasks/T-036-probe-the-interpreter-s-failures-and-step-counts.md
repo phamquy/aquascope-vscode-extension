@@ -1,7 +1,7 @@
 ---
 id: T-036
 title: "Probe the interpreter's failures and step counts"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-08
