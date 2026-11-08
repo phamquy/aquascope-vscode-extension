@@ -1,7 +1,7 @@
 ---
 id: T-040
 title: "Draw the stack and heap in the panel"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-08
