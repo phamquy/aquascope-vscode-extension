@@ -1,7 +1,7 @@
 ---
 id: T-042
 title: "Build Aquascope from the fork that keeps permission checks"
-status: doing
+status: review
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-08
@@ -26,4 +26,5 @@ Spec: [[specs/features/003-run-analysis-at-cursor/spec.md]]
 - `pin.env` now names the fork's repository, tag and commit, and adds `AQUASCOPE_UPSTREAM_*` for v0.4.0. `vendor-aquascope-embed.sh` checks the published embed against the upstream release, because the fork does not change the frontend. The TypeScript bindings are unchanged.
 - Spike 002's checkout was moved to the fork's tag and `build.sh` rebuilt the development bundle's binaries. With those binaries, the 16 fixtures other than `n3_early_return` give the same content as v0.4.0 (the order of entries in `steps` varies from run to run of either binary), so their captures still hold. ADR 0004 Appendix A has the comparison.
 - New fixture `n3_early_return.rs` (issue #31's program) with its captured output. `analyze.test.ts` checks it end to end: `Config::parse` is analysed, with boundaries and no steps. `page.test.ts` draws it in a real webview with no problems.
+- `npm run package` on this branch cloned the fork's tag into `build/aquascope-src` and built from it (`Aquascope v0.4.0-vscode.1 at 27ad0b3`). The strict test run passed 138 of 138 on the third attempt; `check-vsix: ok`, 186.5 MB, `aquascope-vscode-extension-darwin-arm64-0.0.2.vsix`, SHA-256 `e1640be6ae83e20a1373cee9e566ec4016df972e001fa3948043fa775e482585`. The first two attempts each failed one test that this change does not touch: feature 006's D4, the known focus-dependent test, and feature 003's AC5, where VS Code rejected `editor.edit()` with "Illegal argument: TextEditor" because the test's editor handle was gone before the edit. AC5 passed in the other runs, including `npm test` on this branch; it is a second intermittent test.
 - The README notes that such functions are drawn with markers but no tables, and that the package is built from the fork. The panel does not say why the tables are missing; that would be a feature change and is not part of this task.
