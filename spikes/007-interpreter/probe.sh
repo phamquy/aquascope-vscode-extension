@@ -10,23 +10,36 @@
 # src/main.rs of a fresh binary crate, in the environment feature 003's runner sets plus MIRI_SYSROOT.
 # Results: work/results/<name>.json (stdout), .log (stderr), .check.jsonl (`cargo check` stdout, for the
 # cases without a trace) and summary.tsv (name, exit, ms, stdout bytes). report.py summarises them.
+#
+# PROBE_BUNDLE=<bundle root> runs the same programs against a packaged bundle instead (bin/, toolchain/ and
+# miri-sysroot/, as `npm run package` assembles in build/bundle), with results in work/results-bundle and the report in work/report-bundle.txt.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 spike2="$repo/spikes/002-toolchain-bundling"
 # shellcheck source=../002-toolchain-bundling/pin.env
 source "$spike2/pin.env"
-bin="$spike2/work/install/bin"
-tc="$spike2/work/toolchain-trimmed"
 work="$here/work"
-sysroot="$work/miri-sysroot"
+if [ -n "${PROBE_BUNDLE:-}" ]; then
+  bin="$PROBE_BUNDLE/bin"
+  tc="$PROBE_BUNDLE/toolchain"
+  sysroot="$PROBE_BUNDLE/miri-sysroot"
+  results="$work/results-bundle"
+  report="$work/report-bundle.txt"
+else
+  bin="$spike2/work/install/bin"
+  tc="$spike2/work/toolchain-trimmed"
+  sysroot="$work/miri-sysroot"
+  results="$work/results"
+  report="$work/report.txt"
+fi
 timeout_s=20
 if [ ! -x "$bin/cargo-aquascope" ] || [ ! -x "$tc/bin/cargo" ]; then
   echo "run spike 002 first (build.sh, assemble-toolchain.sh, measure-bundle.sh)" >&2
   exit 1
 fi
-mkdir -p "$work/home" "$work/cargo-home" "$work/results" "$work/programs"
-if [ ! -d "$sysroot/lib/rustlib" ]; then
+mkdir -p "$work/home" "$work/cargo-home" "$results" "$work/programs"
+if [ ! -d "$sysroot/lib/rustlib" ] && [ -z "${PROBE_BUNDLE:-}" ]; then
   echo "building the Miri standard library into $sysroot"
   MIRI_SYSROOT="$sysroot" cargo +"$RUST_NIGHTLY" miri setup
 fi
@@ -63,7 +76,7 @@ run_one() {
   local file="$1" name dir start code out
   name="$(basename "$file" .rs)"
   dir="$stage/$name"
-  out="$work/results"
+  out="$results"
   mkdir -p "$dir/src"
   printf '[package]\nname = "aquascope_scratch"\nversion = "0.0.0"\nedition = "2024"\n\n[[bin]]\nname = "aquascope_scratch"\npath = "src/main.rs"\n\n[workspace]\n' > "$dir/Cargo.toml"
   cp "$file" "$dir/src/main.rs"
@@ -85,9 +98,9 @@ run_one() {
   echo "$name exit=$code"
 }
 
-rm -f "$work/results/summary.tsv"
+rm -f "$results/summary.tsv"
 for f in "$here"/programs/*.rs "$work"/programs/*.rs \
   "$repo"/src/test/fixtures/workspace/0{1,2,3,4,5}_*.rs "$repo"/src/test/fixtures/workspace/n1_non_ascii.rs; do
   run_one "$f"
 done
-python3 -I "$here/report.py" "$work/results" | tee "$work/report.txt"
+python3 -I "$here/report.py" "$results" | tee "$report"

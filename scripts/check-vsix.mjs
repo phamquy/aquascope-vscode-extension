@@ -18,7 +18,9 @@ if (!vsix || !host || !toolchain || !bundle) {
   process.exit(2);
 }
 const root = path.dirname(path.dirname(new URL(import.meta.url).pathname));
-const MAX_BYTES = 150 * 1024 * 1024;
+// ADR 0003: about 185 MB with Miri's standard library; the cap still catches an accidental doubling.
+const MAX_MB = 200;
+const MAX_BYTES = MAX_MB * 1024 * 1024;
 const TOOLCHAIN = 'extension/aquascope/toolchain/';
 const failures = [];
 const check = (ok, message) => ok || failures.push(message);
@@ -42,6 +44,13 @@ for (const file of ['extension/aquascope/bin/cargo-aquascope', 'extension/aquasc
   check(mode !== undefined, `missing ${file}`);
   if (mode && !file.endsWith('.dylib')) check(mode[3] === 'x', `${file} is not executable (${mode})`);
 }
+
+// Feature 007: the standard library built for Miri, without cargo's dep-info files (ADR 0003).
+const MIRI_LIB = `extension/aquascope/miri-sysroot/lib/rustlib/${host}/lib/`;
+for (const crate of ['core', 'alloc', 'std']) {
+  check([...entries.keys()].some((e) => e.startsWith(`${MIRI_LIB}lib${crate}-`) && e.endsWith('.rlib')), `missing ${MIRI_LIB}lib${crate}-*.rlib`);
+}
+check(![...entries.keys()].some((e) => e.startsWith('extension/aquascope/miri-sysroot/') && e.endsWith('.d')), 'the Miri standard library still holds .d files');
 
 // The trim and keep lists, read from the shell file the packaging script uses.
 const lists = execFileSync('bash', ['-c', `host=${host}; source scripts/bundle-paths.sh; printf '%s\\n' "\${TRIM[@]}"; echo ---; printf '%s\\n' "\${KEEP[@]}"`], {
@@ -101,7 +110,7 @@ check(generated === undefined || notices === generated, 'the crate notices diffe
 // Nothing from the build folder or the spikes, and AC2's size.
 check(![...entries.keys()].some((e) => /^extension\/(build|spikes|scripts)\//.test(e)), 'the package contains build/, spikes/ or scripts/');
 const bytes = statSync(vsix).size;
-check(bytes <= MAX_BYTES, `the VSIX is ${(bytes / 1048576).toFixed(1)} MB, over 150 MB`);
+check(bytes <= MAX_BYTES, `the VSIX is ${(bytes / 1048576).toFixed(1)} MB, over ${MAX_MB} MB`);
 
 if (failures.length > 0) {
   console.error(`check-vsix: ${failures.length} problem(s) in ${path.basename(vsix)}:\n  ${failures.join('\n  ')}`);
