@@ -74,9 +74,16 @@ function findUp(dir: string, accept: (manifest: string) => boolean): string | un
   }
 }
 
+/**
+ * The form of the temporary crate: a library for the permissions view, so files with and without `main`
+ * compile (003 R2), or a program for the interpreter, which runs `main` (feature 007 R2).
+ */
+export type CrateForm = 'lib' | 'bin';
+
 /** The `Cargo.toml` of the temporary crate: no dependencies, and its own workspace so cargo never climbs further. */
-export function manifestFor(edition: string): string {
-  return `[package]\nname = "aquascope_scratch"\nversion = "0.0.0"\nedition = "${edition}"\n\n[lib]\npath = "src/lib.rs"\n\n[workspace]\n`;
+export function manifestFor(edition: string, form: CrateForm = 'lib'): string {
+  const target = form === 'bin' ? '[[bin]]\nname = "aquascope_scratch"\npath = "src/main.rs"' : '[lib]\npath = "src/lib.rs"';
+  return `[package]\nname = "aquascope_scratch"\nversion = "0.0.0"\nedition = "${edition}"\n\n${target}\n\n[workspace]\n`;
 }
 
 export interface CrateOptions {
@@ -84,10 +91,13 @@ export interface CrateOptions {
   pid?: number;
   /** Whether another extension host is still running, so its in-flight run is left alone. */
   isAlive?: (pid: number) => boolean;
+  /** `lib` (the default) writes `src/lib.rs`; `bin` writes `src/main.rs`. */
+  form?: CrateForm;
 }
 
 /**
- * Writes `source` as `src/lib.rs` of a fresh crate under `<storage>/runs/` and returns its directory.
+ * Writes `source` as `src/lib.rs`, or `src/main.rs` for the `bin` form, of a fresh crate under
+ * `<storage>/runs/` and returns its directory.
  * Earlier runs of this extension host, and runs left by hosts that have exited, are deleted first.
  * Global storage is shared by all VS Code windows, so another window's in-flight run is kept.
  */
@@ -108,8 +118,9 @@ export function writeCrate(storage: string, source: string, edition: string, opt
   }
   const dir = mkdtempSync(path.join(runs, `${pid}-`));
   mkdirSync(path.join(dir, 'src'));
-  writeFileSync(path.join(dir, 'Cargo.toml'), manifestFor(edition));
-  writeFileSync(path.join(dir, 'src', 'lib.rs'), source);
+  const form = options.form ?? 'lib';
+  writeFileSync(path.join(dir, 'Cargo.toml'), manifestFor(edition, form));
+  writeFileSync(path.join(dir, 'src', form === 'bin' ? 'main.rs' : 'lib.rs'), source);
   return dir;
 }
 

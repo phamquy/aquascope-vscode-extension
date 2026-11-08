@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { resolveToolchain, runEnvironment, TOOLCHAIN_SETTING } from '../../analysis/toolchain';
+import { TOOLCHAIN_SETTING, resolveMiriSysroot, resolveToolchain, runEnvironment } from '../../analysis/toolchain';
 import { requireToolchain } from './harness';
 
 /** Creates the R3 layout under `root`. */
@@ -65,6 +65,23 @@ suite('toolchain resolution (R3)', () => {
   });
 });
 
+suite('the Miri-built standard library (feature 007 R3)', () => {
+  test('is found in miri-sysroot/ under the toolchain root', () => {
+    const seen: string[] = [];
+    const r = resolveMiriSysroot('/aq', '/aq', 'darwin', (f) => (seen.push(f), true));
+    assert.deepStrictEqual(r, { ok: true, sysroot: '/aq/miri-sysroot' });
+    assert.deepStrictEqual(seen, ['/aq/miri-sysroot/lib/rustlib']);
+  });
+
+  test('is reported like a missing tool, naming the setting when the root came from it', () => {
+    const fromSetting = resolveMiriSysroot('/aq', ' /aq ', 'darwin', () => false);
+    assert.ok(!fromSetting.ok && fromSetting.message.includes('`aquascope.toolchainPath`') && fromSetting.message.includes('/aq'), JSON.stringify(fromSetting));
+    assert.ok(!fromSetting.ok && fromSetting.message.includes('npm run dev-bundle'));
+    const bundled = resolveMiriSysroot('/ext/aquascope', '', 'darwin', () => false);
+    assert.ok(!bundled.ok && bundled.message.startsWith('This copy of the extension does not include the standard library built for Miri'), JSON.stringify(bundled));
+  });
+});
+
 suite('run environment (R4, R5)', () => {
   const root = '/aq';
   const crate = '/storage/run-1';
@@ -82,6 +99,13 @@ suite('run environment (R4, R5)', () => {
     CARGO_BUILD_RUSTC_WRAPPER: 'sccache',
     CARGO_ENCODED_RUSTFLAGS: '-Dwarnings',
   };
+
+  test('sets extra variables such as MIRI_SYSROOT, replacing the user\'s value (feature 007 R3)', () => {
+    const { env, set } = runEnvironment(root, crate, { ...userEnv, MIRI_SYSROOT: '/home/u/miri' }, 'darwin', { MIRI_SYSROOT: '/aq/miri-sysroot' });
+    assert.strictEqual(env.MIRI_SYSROOT, '/aq/miri-sysroot');
+    assert.strictEqual(set.MIRI_SYSROOT, '/aq/miri-sysroot');
+    assert.strictEqual(runEnvironment(root, crate, userEnv, 'darwin').env.MIRI_SYSROOT, undefined);
+  });
 
   test('puts the tool and toolchain first on PATH, then the user PATH (macOS)', () => {
     const { env } = runEnvironment(root, crate, userEnv, 'darwin');

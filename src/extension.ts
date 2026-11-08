@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { analyzeAtCursor } from './analysis/command';
+import { analyzeAtCursor, showStackAndHeap } from './analysis/command';
 import { outputChannel } from './analysis/runner';
 import { startFocusRecord } from './analysis/target';
 import { PanelReport, VisualizationPanel } from './visualization/panel';
@@ -21,6 +21,8 @@ export function activate(context: vscode.ExtensionContext): AquascopeApi {
     vscode.commands.registerCommand('aquascope.analyzeAtCursor', (target?: unknown) =>
       analyzeAtCursor(context, panel, target instanceof vscode.Uri ? target : undefined),
     ),
+    // Feature 007: the program run in Aquascope's interpreter; the palette passes no argument (D1).
+    vscode.commands.registerCommand('aquascope.showStackAndHeap', () => showStackAndHeap(context)),
     startFocusRecord(),
   );
   return { latestPanelReport: () => panel.latestReport(), isPanelOpen: () => panel.isOpen };

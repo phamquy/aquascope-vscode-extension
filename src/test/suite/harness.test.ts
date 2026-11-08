@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { existsSync } from 'fs';
-import { fixtureWorkspace, requireToolchain } from './harness';
+import { fixtureWorkspace, requireMiri, requireToolchain } from './harness';
 
 suite('test harness', () => {
   test('opens the fixture workspace', () => {
@@ -16,6 +16,14 @@ suite('test harness', () => {
     assert.throws(() => requireToolchain(ctx, { AQUASCOPE_TEST_TOOLCHAIN: '' }), /^Error: skipped$/);
     assert.throws(() => requireToolchain(ctx, { AQUASCOPE_REQUIRE_TOOLCHAIN: '1' }), /AQUASCOPE_REQUIRE_TOOLCHAIN is set/);
     assert.strictEqual(requireToolchain(ctx, { AQUASCOPE_TEST_TOOLCHAIN: '/b', AQUASCOPE_REQUIRE_TOOLCHAIN: '1' }), '/b');
+  });
+
+  test('skips interpreter tests without a Miri library, fails without one when strict, and returns the root when present', () => {
+    const ctx = { skip: () => { throw new Error('skipped'); } } as unknown as Mocha.Context;
+    const has = (f: string) => f === path.join('/b', 'miri-sysroot', 'lib', 'rustlib');
+    assert.throws(() => requireMiri(ctx, { AQUASCOPE_TEST_TOOLCHAIN: '/a' }, has), /^Error: skipped$/);
+    assert.throws(() => requireMiri(ctx, { AQUASCOPE_TEST_TOOLCHAIN: '/a', AQUASCOPE_REQUIRE_TOOLCHAIN: '1' }, has), /has no miri-sysroot/);
+    assert.strictEqual(requireMiri(ctx, { AQUASCOPE_TEST_TOOLCHAIN: '/b', AQUASCOPE_REQUIRE_TOOLCHAIN: '1' }, has), '/b');
   });
 
   test('finds a toolchain bundle in the R3 layout', function () {

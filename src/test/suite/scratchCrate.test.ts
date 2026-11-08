@@ -81,6 +81,18 @@ suite('temporary crate (R2, R9)', () => {
     assert.deepStrictEqual(readdirSync(dir).sort(), ['Cargo.toml', 'src']);
   });
 
+  test('writes a program crate for the interpreter, with the text as src/main.rs (feature 007 R2)', () => {
+    const source = 'fn main() {\n    let s = String::from("hi");\n}\n';
+    const dir = writeCrate(storage, source, '2024', { form: 'bin' });
+    assert.deepStrictEqual(readdirSync(path.join(dir, 'src')), ['main.rs']);
+    assert.strictEqual(readFileSync(path.join(dir, 'src', 'main.rs'), 'utf8'), source);
+    const manifest = readFileSync(path.join(dir, 'Cargo.toml'), 'utf8');
+    assert.strictEqual(manifest, manifestFor('2024', 'bin'));
+    assert.match(manifest, /^\[\[bin\]\]\nname = "aquascope_scratch"\npath = "src\/main.rs"$/m);
+    assert.doesNotMatch(manifest, /\[lib\]/);
+    assert.match(manifest, /^\[workspace\]$/m);
+  });
+
   test('deletes earlier runs of this host and of exited hosts, but keeps a live window\'s run', () => {
     const live = (pid: number): boolean => pid === 222;
     const own1 = writeCrate(storage, 'fn a() {}', '2024', { pid: 111, isAlive: live });
