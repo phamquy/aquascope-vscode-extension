@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
 import { analyzeAtCursor, showStackAndHeap } from './analysis/command';
-import { outputChannel } from './analysis/runner';
+import { outputChannel, recentOutput } from './analysis/runner';
 import { startFocusRecord } from './analysis/target';
 import { PanelReport, VisualizationPanel } from './visualization/panel';
 
-/** What `activate` returns: a way for the integration tests to see what the panel drew (004 R10). */
+/** What `activate` returns: a way for the integration tests to see what the panel drew (004 R10) and logged. */
 export interface AquascopeApi {
   latestPanelReport(): Promise<PanelReport>;
   isPanelOpen(): boolean;
+  /** The Aquascope output channel's latest lines (feature 007 AC4). */
+  recentOutput(): string;
 }
 
 export function activate(context: vscode.ExtensionContext): AquascopeApi {
@@ -25,7 +27,7 @@ export function activate(context: vscode.ExtensionContext): AquascopeApi {
     vscode.commands.registerCommand('aquascope.showStackAndHeap', () => showStackAndHeap(context, panel)),
     startFocusRecord(),
   );
-  return { latestPanelReport: () => panel.latestReport(), isPanelOpen: () => panel.isOpen };
+  return { latestPanelReport: () => panel.latestReport(), isPanelOpen: () => panel.isOpen, recentOutput };
 }
 
 export function deactivate(): void {}

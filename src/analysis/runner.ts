@@ -4,11 +4,38 @@ import { ChildProcess, spawn } from 'child_process';
 import type { RunEnvironment } from './toolchain';
 
 let channel: vscode.OutputChannel | undefined;
+/** How many of the channel's latest lines are kept for `recentOutput`. */
+const RECENT_LINES = 500;
+const recent: string[] = [];
 
-/** The "Aquascope" output channel, created on first use. */
+/**
+ * The "Aquascope" output channel, created on first use. It also keeps its latest lines in memory, which the
+ * extension's test API exposes, since a channel's text cannot be read back through VS Code (feature 007 AC4).
+ */
 export function outputChannel(): vscode.OutputChannel {
-  channel ??= vscode.window.createOutputChannel('Aquascope');
+  if (!channel) {
+    const real = vscode.window.createOutputChannel('Aquascope');
+    const keep = (text: string) => {
+      recent.push(...text.split('\n'));
+      recent.splice(0, Math.max(0, recent.length - RECENT_LINES));
+    };
+    channel = {
+      name: real.name,
+      append: (value: string) => (keep(value), real.append(value)),
+      appendLine: (value: string) => (keep(value), real.appendLine(value)),
+      replace: (value: string) => ((recent.length = 0), keep(value), real.replace(value)),
+      clear: () => ((recent.length = 0), real.clear()),
+      show: (preserveFocus?: boolean) => real.show(preserveFocus),
+      hide: () => real.hide(),
+      dispose: () => real.dispose(),
+    } as vscode.OutputChannel;
+  }
   return channel;
+}
+
+/** The output channel's latest lines, joined with newlines. */
+export function recentOutput(): string {
+  return recent.join('\n');
 }
 
 /** Runs `task` under a cancellable progress notification (R8). */
