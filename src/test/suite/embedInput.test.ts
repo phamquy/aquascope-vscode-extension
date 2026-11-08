@@ -101,7 +101,8 @@ suite('embed input from the analysis result (004 R3, D2)', () => {
 
   test('drops nothing from any captured body', () => {
     const data = path.join(fixtureWorkspace(), '..', 'data');
-    for (const file of readdirSync(data).filter((f) => f.endsWith('.json'))) {
+    // Permissions output only; the `*.interp.json` files are interpreter traces (feature 007).
+    for (const file of readdirSync(data).filter((f) => f.endsWith('.json') && !f.endsWith('.interp.json'))) {
       const name = file.replace(/\.json$/, '');
       const source = fixtureText(`${name}.rs`);
       for (const entry of JSON.parse(fixtureData(file)) as AquascopeEntry[]) {
