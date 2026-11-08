@@ -1,7 +1,7 @@
 ---
 id: T-039
 title: "Run the interpreter from a Show Stack and Heap command"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-08
