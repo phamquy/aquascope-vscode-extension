@@ -1,6 +1,6 @@
 // Shared helpers for the test suites: the fixture workspace and the toolchain bundle (runTest.ts).
 import * as path from 'path';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import * as vscode from 'vscode';
 
 /** Root of the toolchain bundle for end-to-end tests, or undefined when none was found. */
@@ -43,4 +43,21 @@ export function requireToolchain(ctx: Mocha.Context, env: NodeJS.ProcessEnv = pr
     ctx.skip();
   }
   return root as string;
+}
+
+/**
+ * Returns the bundle root when it also holds the Miri-built standard library the interpreter needs
+ * (feature 007), or skips the calling test with a visible reason. A strict run (AQUASCOPE_REQUIRE_TOOLCHAIN=1)
+ * fails instead, so the packaged bundle is always tested with the interpreter.
+ */
+export function requireMiri(ctx: Mocha.Context, env: NodeJS.ProcessEnv = process.env, exists: (file: string) => boolean = existsSync): string {
+  const root = requireToolchain(ctx, env);
+  if (!exists(path.join(root, 'miri-sysroot', 'lib', 'rustlib'))) {
+    if (env.AQUASCOPE_REQUIRE_TOOLCHAIN === '1') {
+      throw new Error(`AQUASCOPE_REQUIRE_TOOLCHAIN is set, but the bundle at ${root} has no miri-sysroot/`);
+    }
+    console.warn('    the toolchain bundle has no miri-sysroot/: run `npm run dev-bundle` with miri and rust-src installed; skipping');
+    ctx.skip();
+  }
+  return root;
 }

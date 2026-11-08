@@ -33,6 +33,14 @@ suite('analyze command contributions (R1, R14)', () => {
     assert.strictEqual(palette?.when, 'editorLangId == rust');
   });
 
+  test('feature 007 R1: declares Show Stack and Heap in the palette for Rust files only, with no title-bar button (D1)', async () => {
+    const id = 'aquascope.showStackAndHeap';
+    assert.strictEqual(contributes.commands.find((c) => c.command === id)?.title, 'Aquascope: Show Stack and Heap');
+    assert.strictEqual(contributes.menus.commandPalette.find((m) => m.command === id)?.when, 'editorLangId == rust');
+    assert.ok(!contributes.menus['editor/title'].some((m) => m.command === id));
+    assert.ok((await vscode.commands.getCommands(true)).includes(id));
+  });
+
   test('feature 006 AC1: puts the command beside Split Editor, above Rust files only, with an icon', () => {
     const command = contributes.commands.find((c) => c.command === COMMAND);
     assert.strictEqual(command?.icon, '$(eye)');
