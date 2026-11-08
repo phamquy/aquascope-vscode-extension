@@ -67,6 +67,14 @@ suite('analyze command contributions (R1, R14)', () => {
     for (const key of SETTINGS) assert.ok(readme.includes(`\`${key}\``), `README does not mention ${key}`);
   });
 
+  test('feature 007 R7: documents Show Stack and Heap and its limits in the README', () => {
+    const readme = readFileSync(path.join(ext.extensionPath, 'README.md'), 'utf8');
+    assert.ok(readme.includes('**Aquascope: Show Stack and Heap**'));
+    for (const limit of ['`main`', 'first 100 steps', 'reads input', 'never ends', 'borrow checking']) {
+      assert.ok(readme.includes(limit), `README does not mention ${limit}`);
+    }
+  });
+
   test('without a Rust editor, says so instead of running', async () => {
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     const result = await vscode.commands.executeCommand<AnalyzeResult>(COMMAND);

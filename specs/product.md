@@ -108,4 +108,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 004 | Render the visualization in a webview         | implemented |
 | 005 | Package per-platform VSIX with toolchain      | implemented |
 | 006 | Analyze from a button in the editor title bar | implemented |
-| 007 | Show the stack and heap at each step          | approved    |
+| 007 | Show the stack and heap at each step          | implemented |

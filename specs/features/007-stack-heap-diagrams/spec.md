@@ -1,7 +1,7 @@
 ---
 id: 007-stack-heap-diagrams
 title: Show the stack and heap at each step
-status: approved
+status: implemented
 ---
 # Show the stack and heap at each step
 
@@ -50,17 +50,17 @@ Revised 2026-11-08 from T-036's probe (Appendix A) and T-037's size check.
 
 ## Acceptance criteria
 
-- [ ] AC1: For fixture `01_move_string`, the command opens the panel with four step markers (L1 to L4). The first step's stack holds `main` with `s1` and one heap value; the second holds `s1` and `s2`; the last holds no variables and no heap value.
-- [ ] AC2: For fixture `05_method_mut_borrow`, at least one step shows a frame for `grow` above the frame for `main`.
-- [ ] AC3: For a file with no `main`, the message says the view needs a `main` function, not a raw compiler error.
-- [ ] AC4: For a program that panics, the message says the program stopped while running, and the log holds the interpreter's output.
-- [ ] AC5: An unsaved edit is run: after changing a fixture in the editor without saving, the steps reflect the edited text.
-- [ ] AC6: With the network off, the command works on a machine where it has never run before.
-- [ ] AC7: The packaging check confirms that the VSIX holds what R3 needs, and the package size is recorded.
-- [ ] AC8: Integration tests cover AC1 to AC5, AC10 and AC11 and pass in `npm test`.
-- [ ] AC9: A hand check, recorded in the task note, compares the panel for the Book's chapter 4.1 move example with the Book's own diagram, in a dark and a light theme.
-- [ ] AC10: For a program that calls its own function in a loop often enough to produce more than 100 steps, the panel draws exactly 100 and says that it stopped there.
-- [ ] AC11: For fixture `i4_use_after_free`, the panel draws four steps, the last marked as failed, and names a use after free.
+- [x] AC1: For fixture `01_move_string`, the command opens the panel with four step markers (L1 to L4). The first step's stack holds `main` with `s1` and one heap value; the second holds `s1` and `s2`; the last holds no variables and no heap value.
+- [x] AC2: For fixture `05_method_mut_borrow`, at least one step shows a frame for `grow` above the frame for `main`.
+- [x] AC3: For a file with no `main`, the message says the view needs a `main` function, not a raw compiler error.
+- [x] AC4: For a program that panics, the message says the program stopped while running, and the log holds the interpreter's output.
+- [x] AC5: An unsaved edit is run: after changing a fixture in the editor without saving, the steps reflect the edited text.
+- [x] AC6: With the network off, the command works on a machine where it has never run before.
+- [x] AC7: The packaging check confirms that the VSIX holds what R3 needs, and the package size is recorded.
+- [x] AC8: Integration tests cover AC1 to AC5, AC10 and AC11 and pass in `npm test`.
+- [x] AC9: A hand check, recorded in the task note, compares the panel for the Book's chapter 4.1 move example with the Book's own diagram, in a dark and a light theme.
+- [x] AC10: For a program that calls its own function in a loop often enough to produce more than 100 steps, the panel draws exactly 100 and says that it stopped there.
+- [x] AC11: For fixture `i4_use_after_free`, the panel draws four steps, the last marked as failed, and names a use after free.
 
 ## Out of scope
 

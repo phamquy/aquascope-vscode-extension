@@ -15,6 +15,10 @@ Open a Rust file, put the cursor inside a function and click the eye button at t
 
 The result opens in an **Aquascope** panel beside the editor, drawn as in the Rust Book's experiment edition: beside each line, a table of how the variables' permissions change, and before each expression that needs a permission, a marker showing whether the variable has it. Running the command again updates the same panel without moving the cursor out of the editor. When a run cannot analyse the function, the panel shows why in place of the old diagram. The panel has no settings.
 
+To see memory instead of permissions, run **Aquascope: Show Stack and Heap** from the Command Palette in a Rust file that has a `main` function. It runs the whole program, starting at `main`, in Aquascope's interpreter, and draws in the same panel what the Rust Book draws in its chapter on ownership: after each step, the stack frames with their variables and the heap with arrows to what each pointer owns, with a marker after the line of each step. It draws at most the first 100 steps and says when it stopped there; each call to a function of the program adds steps, so a shorter run shows them all. A run that reaches undefined behaviour, such as using a pointer after its memory was freed, is drawn up to that step, marked in red and named.
+
+Because it runs the program inside Miri, Rust's interpreter for checking unsafe code, it cannot show a program that reads input, files, the clock or the network, that exits early, or that never ends; such a run is reported as the program having stopped while running, or as a timeout. Code with compile errors cannot run at all, including code that fails borrow checking, which the permissions view can still show. Like the permissions view, it works on the file on its own, including unsaved changes.
+
 ## Settings
 
 | Setting | Default | What it does |
@@ -24,7 +28,7 @@ The result opens in an **Aquascope** panel beside the editor, drawn as in the Ru
 
 ## Installing
 
-This version is packaged for Macs with Apple silicon (darwin-arm64) and is installed from its VSIX file: in VS Code, run **Extensions: Install from VSIX…** from the Command Palette and choose `aquascope-vscode-extension-darwin-arm64-<version>.vsix`. The package carries Aquascope and the pinned Rust toolchain it needs, so nothing else has to be installed, `aquascope.toolchainPath` can stay empty, and nothing is downloaded when it runs.
+This version is packaged for Macs with Apple silicon (darwin-arm64) and is installed from its VSIX file: in VS Code, run **Extensions: Install from VSIX…** from the Command Palette and choose `aquascope-vscode-extension-darwin-arm64-<version>.vsix`. The package carries Aquascope, the pinned Rust toolchain it needs and the standard library its interpreter runs programs with, so nothing else has to be installed, `aquascope.toolchainPath` can stay empty, and nothing is downloaded when it runs.
 
 ## Development
 
