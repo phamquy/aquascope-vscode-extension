@@ -3,7 +3,8 @@ import * as vscode from 'vscode';
 import { selectAtCursor } from '../../analysis/select';
 import type { AnalysisOutput } from '../../analysis/types';
 import { PanelReport, VIEW_TYPE, VisualizationPanel } from '../../visualization/panel';
-import { fixture, fixtureData, fixtureText } from './harness';
+import { STEP_LIMIT, TRACE_TITLE } from '../../visualization/traceInput';
+import { capturedTrace, fixture, fixtureData, fixtureText, longTrace } from './harness';
 
 const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
 const FILE = '05_method_mut_borrow';
@@ -89,5 +90,78 @@ suite('Aquascope panel (004 R1, R4, R5)', function () {
     const report = await panel.latestReport();
     assert.ok(report.type === 'rendered');
     assert.strictEqual(panelTabs().length, 1);
+  });
+});
+
+suite('Aquascope panel drawing traces (feature 007 R4, R8, D5)', function () {
+  this.timeout(30_000);
+  let panel: VisualizationPanel;
+  let editor: vscode.TextEditor;
+
+  /** The latest report, which must be a trace drawn without problems. */
+  async function traceReport(): Promise<Extract<PanelReport, { type: 'trace' }>> {
+    const report = await panel.latestReport();
+    assert.strictEqual(report.type, 'trace', JSON.stringify(report));
+    assert.deepStrictEqual(report.problems, [], 'no policy violation or script error');
+    return report as Extract<PanelReport, { type: 'trace' }>;
+  }
+
+  setup(async () => {
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    const ext = vscode.extensions.getExtension(EXTENSION_ID);
+    assert.ok(ext);
+    panel = new VisualizationPanel(ext.extensionUri);
+    editor = await vscode.window.showTextDocument(fixture('01_move_string.rs'), { viewColumn: vscode.ViewColumn.One });
+  });
+  teardown(async () => {
+    panel.dispose();
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  });
+
+  test('draws a memory diagram and a code marker for every step, in the one panel the permissions view used', async () => {
+    panel.showAnalysis(resultAt(18, 4), fixtureText(`${FILE}.rs`));
+    await panel.latestReport();
+    const source = fixtureText('01_move_string.rs');
+    panel.showTrace(capturedTrace('01_move_string'), source);
+    const report = await traceReport();
+    assert.strictEqual(report.code, source.replace(/\r$/gm, ''));
+    assert.deepStrictEqual([report.steps, report.markers, report.failed], [4, 4, 0]);
+    assert.deepStrictEqual(report.notes, []);
+    const tabs = panelTabs();
+    assert.strictEqual(tabs.length, 1, 'the trace replaced the permissions view (D5)');
+    assert.strictEqual(tabs[0].tab.label, TRACE_TITLE);
+    assert.strictEqual(vscode.window.activeTextEditor?.document, editor.document, 'focus stays in the editor');
+  });
+
+  test('draws a run with calls into methods, and one with an emoji on a line', async () => {
+    panel.showTrace(capturedTrace('05_method_mut_borrow'), fixtureText('05_method_mut_borrow.rs'));
+    const calls = await traceReport();
+    assert.deepStrictEqual([calls.steps, calls.markers], [11, 11]);
+    panel.showTrace(capturedTrace('n1_non_ascii'), fixtureText('n1_non_ascii.rs'));
+    const report = await traceReport();
+    assert.deepStrictEqual([report.steps, report.markers], [5, 5]);
+  });
+
+  test('marks the last step of a run that reached undefined behaviour as failed, and names it', async () => {
+    panel.showTrace(capturedTrace('i4_use_after_free'), fixtureText('i4_use_after_free.rs'));
+    const report = await traceReport();
+    assert.deepStrictEqual([report.steps, report.markers, report.failed], [4, 4, 1]);
+    assert.strictEqual(report.notes.length, 1);
+    assert.match(report.notes[0], /used after the memory it points to was freed/);
+  });
+
+  test(`draws only the first ${STEP_LIMIT} steps of a longer run and says so (R8)`, async () => {
+    panel.showTrace(longTrace(150), fixtureText('05_method_mut_borrow.rs'));
+    const report = await traceReport();
+    assert.deepStrictEqual([report.steps, report.markers, report.failed], [STEP_LIMIT, STEP_LIMIT, 0]);
+    assert.match(report.notes[0] ?? '', /^Showing the first 100 of 150 steps\./);
+  });
+
+  test('a message replaces the trace', async () => {
+    panel.showTrace(capturedTrace('01_move_string'), fixtureText('01_move_string.rs'));
+    await traceReport();
+    panel.showMessage('The program stopped while running.');
+    const report = await panel.latestReport();
+    assert.ok(report.type === 'message' && report.text === 'The program stopped while running.', JSON.stringify(report));
   });
 });

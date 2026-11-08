@@ -9,6 +9,13 @@ body {
   color: var(--vscode-foreground);
 }
 
+/* Notes above a stack-and-heap diagram (feature 007): the step limit, or undefined behaviour. */
+.aquascope-note {
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-descriptionForeground);
+  margin: 0 0 0.5em;
+}
+
 /*
  * The embed takes its colours from mdBook's theme variables, which a webview does not have; these
  * supply them from VS Code's theme. Its permission colours (read, write, own) are its own, and

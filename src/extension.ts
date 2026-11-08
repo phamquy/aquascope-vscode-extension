@@ -22,7 +22,7 @@ export function activate(context: vscode.ExtensionContext): AquascopeApi {
       analyzeAtCursor(context, panel, target instanceof vscode.Uri ? target : undefined),
     ),
     // Feature 007: the program run in Aquascope's interpreter; the palette passes no argument (D1).
-    vscode.commands.registerCommand('aquascope.showStackAndHeap', () => showStackAndHeap(context)),
+    vscode.commands.registerCommand('aquascope.showStackAndHeap', () => showStackAndHeap(context, panel)),
     startFocusRecord(),
   );
   return { latestPanelReport: () => panel.latestReport(), isPanelOpen: () => panel.isOpen };
