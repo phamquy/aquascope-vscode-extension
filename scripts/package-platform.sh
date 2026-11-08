@@ -120,6 +120,14 @@ assemble() {
   cp "$src/LICENSE" "$bundle/LICENSE"
   node "$root/scripts/crate-notices.mjs" "$src" "$RUST_NIGHTLY" "$host" > "$bundle/THIRD-PARTY-NOTICES"
 
+  # The standard library built for Miri, which Aquascope's interpreter needs (feature 007, ADR 0003).
+  # cargo-miri builds it from the nightly's rust-src into build/miri-sysroot, which keeps it between runs;
+  # it rebuilds only when the toolchain changes. Cargo's dep-info (.d) files are not needed to run.
+  MIRI_SYSROOT="$build/miri-sysroot" cargo +"$RUST_NIGHTLY" miri setup ||
+    fail "cargo miri setup could not build the standard library for Miri"
+  cp -Rp "$build/miri-sysroot" "$bundle/miri-sysroot"
+  find "$bundle/miri-sysroot" -name '*.d' -delete
+
   if [ -n "$(find "$bundle" -type l)" ]; then fail "the bundle contains symbolic links; it must be real files"; fi
   echo "bundle: $(du -sh "$bundle" | cut -f1), $(find "$bundle" -type f | wc -l | tr -d ' ') files"
 }

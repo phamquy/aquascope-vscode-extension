@@ -34,7 +34,7 @@ npm run compile
 # press F5 in VS Code
 ```
 
-For development without a package, build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. `npm test` finds that bundle on its own.
+For development without a package, build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. The first run also builds the standard library that Aquascope's interpreter needs, which takes about 15 seconds and needs rustup's pinned nightly with the `miri` and `rust-src` components; without them the bundle serves the permissions view only. `npm test` finds that bundle on its own.
 
 ### Building a package
 
@@ -42,8 +42,8 @@ For development without a package, build a development bundle from spike 002's o
 
 1. It checks that the Aquascope checkout matches the pin in `spikes/002-toolchain-bundling/pin.env`.
 2. It installs the pinned nightly and builds Aquascope.
-3. It assembles the trimmed toolchain with its licence files.
+3. It assembles the trimmed toolchain with its licence files, and the standard library built for Miri, which Aquascope's interpreter needs.
 4. It runs the full test suite against exactly that toolchain.
-5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, and prints its path and size (about 125 MB).
+5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, and prints its path and size (about 185 MB).
 
 The first run downloads the nightly and Aquascope's dependencies, about 1 GB, and takes a few minutes; later runs take under a minute. All the work happens in `build/`, which git ignores and which can be deleted at any time to free several GB.
