@@ -27,12 +27,20 @@
         "command": "aquascope.analyzeAtCursor",
         "title": "Aquascope: Analyze Function at Cursor",
         "icon": "$(eye)"
+      },
+      {
+        "command": "aquascope.showStackAndHeap",
+        "title": "Aquascope: Show Stack and Heap"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "aquascope.analyzeAtCursor",
+          "when": "editorLangId == rust"
+        },
+        {
+          "command": "aquascope.showStackAndHeap",
           "when": "editorLangId == rust"
         }
       ],

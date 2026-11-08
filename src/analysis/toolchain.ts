@@ -35,6 +35,29 @@ export function resolveToolchain(
   return { ok: false, message };
 }
 
+/** The standard library built for Miri, which the interpreter needs, inside a toolchain root (ADR 0003). */
+export const MIRI_SYSROOT_DIR = 'miri-sysroot';
+
+/**
+ * The Miri-built standard library under a resolved toolchain root (feature 007 R3). Only the interpreter
+ * needs it, so a root without it still serves the permissions view; its absence is reported like a
+ * missing tool, naming the setting when the root came from it.
+ */
+export function resolveMiriSysroot(
+  root: string,
+  configured: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+  exists: (file: string) => boolean = existsSync,
+): { ok: true; sysroot: string } | { ok: false; message: string } {
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  const sysroot = p.join(root, MIRI_SYSROOT_DIR);
+  if (exists(p.join(sysroot, 'lib', 'rustlib'))) return { ok: true, sysroot };
+  const message = configured?.trim()
+    ? `The Aquascope tools at ${root}, set by \`${TOOLCHAIN_SETTING}\`, have no ${MIRI_SYSROOT_DIR}/ folder: the standard library built for Miri that "Show Stack and Heap" needs. Point the setting at a folder that has one; \`npm run dev-bundle\` adds it to a development bundle.`
+    : `This copy of the extension does not include the standard library built for Miri that "Show Stack and Heap" needs. Set \`${TOOLCHAIN_SETTING}\` to a folder containing bin/, toolchain/ and ${MIRI_SYSROOT_DIR}/.`;
+  return { ok: false, message };
+}
+
 /** Variables removed because they would change how the compiler runs (R4). */
 const REMOVED = ['RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTUP_TOOLCHAIN', 'RUSTFLAGS', 'CARGO_TARGET_DIR'];
 const REMOVED_PREFIX = 'CARGO_BUILD_';
@@ -47,12 +70,17 @@ export interface RunEnvironment {
   removed: string[];
 }
 
-/** The environment for running the tool in `crateDir` with the toolchain at `root` (R4, R5). */
+/**
+ * The environment for running the tool in `crateDir` with the toolchain at `root` (R4, R5). `extra` sets
+ * more variables the same way, replacing any value the base has, such as `MIRI_SYSROOT` for the
+ * interpreter (feature 007 R3).
+ */
 export function runEnvironment(
   root: string,
   crateDir: string,
   base: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
+  extra: Record<string, string> = {},
 ): RunEnvironment {
   const p = platform === 'win32' ? path.win32 : path.posix;
   // Windows variable names are case-insensitive, so `Path` and `PATH` are the same variable there.
@@ -82,6 +110,7 @@ export function runEnvironment(
   set.RUSTC_WRAPPER = '';
   set.CARGO_ENCODED_RUSTFLAGS = '';
   set.CARGO_TARGET_DIR = p.join(crateDir, 'target');
+  Object.assign(set, extra);
 
   for (const [key, value] of Object.entries(set)) {
     for (const existing of keysOf(key)) delete env[existing];
