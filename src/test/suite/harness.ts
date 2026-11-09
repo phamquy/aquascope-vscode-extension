@@ -21,6 +21,11 @@ export function fixture(name: string): vscode.Uri {
   return vscode.Uri.file(path.join(fixtureWorkspace(), name));
 }
 
+/** A path in the fixture Cargo projects of `src/test/fixtures/projects/` (feature 008). */
+export function fixtureProject(...parts: string[]): string {
+  return path.join(fixtureWorkspace(), '..', 'projects', ...parts);
+}
+
 /** Captured tool output in `src/test/fixtures/data/`, read as text. */
 export function fixtureData(name: string): string {
   return readFileSync(path.join(fixtureWorkspace(), '..', 'data', name), 'utf8');

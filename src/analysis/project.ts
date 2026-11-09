@@ -152,7 +152,8 @@ export async function locateCrate(req: LocateRequest): Promise<CrateLocation> {
   return locateInMetadata(metadata, realPath(req.file));
 }
 
-function realPath(file: string): string {
+/** The file's real path, as cargo reports paths, or `file` itself when it is not on disk. */
+export function realPath(file: string): string {
   try {
     return realpathSync(file);
   } catch {
