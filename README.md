@@ -48,6 +48,6 @@ For development without a package, build a development bundle from spike 002's o
 2. It installs the pinned nightly and builds Aquascope. The pin names a fork of Aquascope with one fix, which keeps a function's markers when its tables cannot be worked out (ADR 0004).
 3. It assembles the trimmed toolchain with its licence files, and the standard library built for Miri, which Aquascope's interpreter needs.
 4. It runs the full test suite against exactly that toolchain.
-5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, and prints its path and size (about 185 MB).
+5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, including that no file holds your home folder's path, and prints its path and size (about 185 MB).
 
 The first run downloads the nightly and Aquascope's dependencies, about 1 GB, and takes a few minutes; later runs take under a minute. All the work happens in `build/`, which git ignores and which can be deleted at any time to free several GB.

@@ -7,9 +7,11 @@
 // and executable; every other toolchain file is in the rustc, cargo or rust-std manifest and not trimmed,
 // or is a kept licence file. AC2: at most 150 MB. AC3: the licence and notice files are present, the
 // crate notices being the ones generated for this bundle. It also checks that nothing from build/ leaked
-// into the package. Exits 1 and lists every failed check.
+// into the package, and that no file holds the build machine's home path (R10, AC8). Exits 1 and lists
+// every failed check.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const [vsix, host, toolchain, bundle] = process.argv.slice(2);
@@ -111,6 +113,22 @@ check(generated === undefined || notices === generated, 'the crate notices diffe
 check(![...entries.keys()].some((e) => /^extension\/(build|spikes|scripts)\//.test(e)), 'the package contains build/, spikes/ or scripts/');
 const bytes = statSync(vsix).size;
 check(bytes <= MAX_BYTES, `the VSIX is ${(bytes / 1048576).toFixed(1)} MB, over ${MAX_MB} MB`);
+
+// R10, AC8: no file holds the build machine's home path, which rustc records in source paths.
+const home = Buffer.from(os.homedir());
+const unpacked = mkdtempSync(path.join(os.tmpdir(), 'check-vsix-'));
+try {
+  execFileSync('unzip', ['-q', vsix, '-d', unpacked]);
+  const withHome = [];
+  for (const entry of readdirSync(unpacked, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const file = path.join(entry.parentPath, entry.name);
+    if (readFileSync(file).includes(home)) withHome.push(path.relative(unpacked, file));
+  }
+  check(withHome.length === 0, `${withHome.length} file(s) hold the home path ${home}: ${withHome.slice(0, 5).join(', ')}${withHome.length > 5 ? ', …' : ''}`);
+} finally {
+  rmSync(unpacked, { recursive: true, force: true });
+}
 
 if (failures.length > 0) {
   console.error(`check-vsix: ${failures.length} problem(s) in ${path.basename(vsix)}:\n  ${failures.join('\n  ')}`);

@@ -49,6 +49,7 @@ D1 to D3 were recorded on 2026-11-06 from the draft's open questions, D4 and D5 
   - a committed `media/aquascope-embed/THIRD-PARTY-NOTICES`, listing each library bundled in `embed.iife.js` with its version (from the pinned frontend's `pnpm-lock.yaml`), its copyright line and its licence.
 - R8: Installed, the package analyses a function with no setting and nothing else installed. With `aquascope.toolchainPath` empty and no Rust toolchain on `PATH`, the command finds the bundled tools (003 R3) and the panel draws the diagram. The binaries remain executable after installing. Nothing is downloaded at install or run time (constitution 6).
 - R9: The script prints the path and size of the VSIX it wrote. The README explains how to build a package and how to install it from the VSIX file (D3).
+- R10: The package holds no path from the build machine's home folder, where rustup and cargo keep the sources that rustc records in what it builds. The script builds the Aquascope binaries with the home folder remapped to `~` and without rustup's proxy, whose `RUSTUP_HOME` would otherwise be compiled into `aquascope-driver`. It builds the standard library for Miri from copies of its sources in a temporary folder outside the home folder, because `cargo miri setup` takes no compiler flags. (Added after release 0.0.3, which held the path.)
 
 ## Acceptance criteria
 
@@ -77,6 +78,7 @@ D1 to D3 were recorded on 2026-11-06 from the draft's open questions, D4 and D5 
   The panel draws the diagram, and no macOS security dialog appears. If macOS blocks the binaries, the feature goes back to the spec, since signing is out of scope.
 - [x] AC6: The script stops before building, naming the mismatch, when the pin names an Aquascope commit other than the checkout's, or a nightly other than the checkout's `rust-toolchain.toml`. Its stop on other platforms is checked by reading the script.
 - [x] AC7: The script's output names the VSIX and its size, and the README explains building a package and installing it from the VSIX file.
+- [x] AC8: The package check finds no file in the VSIX that holds the build machine's home path, and the packaged binaries and Miri library still analyse and run the fixtures as before (R10).
 
 ## Out of scope
 
