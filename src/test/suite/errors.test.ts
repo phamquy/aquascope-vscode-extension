@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { classifyBuildErrors, parseCompilerErrors, runFailure } from '../../analysis/errors';
+import { classifyBuildErrors, CompilerError, crateBuildFailure, crateCompileErrors, parseCompilerErrors, runFailure, unsupportedTarget } from '../../analysis/errors';
 import type { RunOutcome } from '../../analysis/runner';
 import { selectAtCursor } from '../../analysis/select';
 import type { CharRange } from '../../analysis/types';
@@ -69,5 +69,51 @@ suite('classifying failures (R10)', () => {
     const exit = runFailure(outcome({ exitCode: 101 }), 'Aquascope', 60);
     assert.deepStrictEqual(exit.code, 'toolFailed');
     assert.match(exit.message, /exit code 101.*Aquascope output/);
+  });
+});
+
+suite('why a crate cannot be analysed (feature 008, R6 to R8, R10)', () => {
+  const stderr = (name: string) => fixtureData(`crate/${name}.stderr`);
+
+  test('a dependency missing from the cargo cache is named, with cargo fetch (R6)', () => {
+    const f = crateBuildFailure(stderr('missing-dep'));
+    assert.strictEqual(f?.code, 'dependencyMissing');
+    assert.match(f.message, /`aquascope-probe-missing-crate`/);
+    assert.match(f.message, /`cargo fetch` in the project/);
+    assert.match(crateBuildFailure('error: failed to download `itoa v1.0.18`\n')?.message ?? '', /`itoa`/);
+  });
+
+  test('a missing linker, whether the whole run failed or only the functions using a workspace proc macro (R7)', () => {
+    for (const name of ['serde-no-cc', 'proc-macro-no-cc']) {
+      const f = crateBuildFailure(stderr(name), 'darwin');
+      assert.strictEqual(f?.code, 'linkerMissing', name);
+      assert.match(f.message, /`cc` was not found/);
+      assert.match(f.message, /xcode-select --install/);
+    }
+    assert.match(crateBuildFailure('error: linker `cc` not found', 'linux')?.message ?? '', /gcc/);
+    assert.match(crateBuildFailure('error: linker `link.exe` not found', 'win32')?.message ?? '', /Build Tools/);
+  });
+
+  test('other failures, such as a build script given to rustc_plugin, are not classified here', () => {
+    assert.strictEqual(crateBuildFailure(stderr('build-rs')), undefined);
+    assert.strictEqual(crateBuildFailure(''), undefined);
+  });
+
+  test("compile errors name their files and lines, from cargo check's primary spans (R8)", () => {
+    const errors = parseCompilerErrors(fixtureData('crate/minigrep-broken.check.jsonl'));
+    assert.deepStrictEqual(errors.map((e) => e.place), [{ file: 'src/lib.rs', line: 27 }]);
+    const f = crateCompileErrors(errors);
+    assert.strictEqual(f.code, 'compileErrors');
+    assert.match(f.message, /the crate has compile errors, in src\/lib\.rs line 27\./);
+
+    const many: CompilerError[] = Array.from({ length: 7 }, (_, i) => ({ code: 'E0308', message: '', rendered: '', place: { file: 'src/a.rs', line: i + 1 } }));
+    assert.match(crateCompileErrors(many).message, /src\/a\.rs line 5 and 2 more\./);
+    assert.doesNotMatch(crateCompileErrors([]).message, /, in /);
+  });
+
+  test('a build script cannot be analysed (R10)', () => {
+    const f = unsupportedTarget('targets');
+    assert.strictEqual(f.code, 'unsupportedTarget');
+    assert.match(f.message, /build script \(the build\.rs of targets\)/);
   });
 });

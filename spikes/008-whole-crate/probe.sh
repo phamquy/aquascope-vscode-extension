@@ -3,9 +3,11 @@
 #
 #   bash spikes/008-whole-crate/probe.sh
 #
-# On the first run, builds a prototype of the fork into work/install: pin.env's tag plus fork-probe.patch,
-# which adds `--crate-of <file>` (rustc_plugin's CrateContainingFile filter, D2) and a `file_path` on each
-# result (D3). It then copies the fixture projects into work/copies with copy.mjs, the prototype of D1's
+# On the first run, builds the pinned fork into work/install, or uses PROBE_INSTALL, a folder holding
+# bin/cargo-aquascope and bin/aquascope-driver, such as spike 002's work/install. The pin's tag has had
+# `--crate-of <file>` (D2) and `file_path` on results and build errors (D3) since T-045; T-044 ran this
+# probe on a prototype instead, the earlier tag plus fork-probe.patch, which is kept as the record of the
+# spec's Appendix B. It then copies the fixture projects into work/copies with copy.mjs, the prototype of D1's
 # copy, and runs the prototype on the copies with spike 002's trimmed toolchain, in the environment feature
 # 003's runner sets. HOME is kept, so cargo uses the user's own cache, and CARGO_NET_OFFLINE stays set (D5).
 # Results: work/results/<case>.json (stdout) and .log (stderr), copies.tsv (copy timings), summary.tsv (one
@@ -18,7 +20,7 @@ spike2="$repo/spikes/002-toolchain-bundling"
 # shellcheck source=../002-toolchain-bundling/pin.env
 source "$spike2/pin.env"
 work="$here/work"
-install="$work/install"
+install="${PROBE_INSTALL:-$work/install}"
 tc="$spike2/work/toolchain-trimmed"
 copies="$work/copies"
 targets="$work/targets"
@@ -31,8 +33,10 @@ fi
 if [ ! -x "$install/bin/cargo-aquascope" ]; then
   fork="$work/aquascope"
   [ -d "$fork/.git" ] || git clone --quiet --depth 1 --branch "$AQUASCOPE_TAG" "$AQUASCOPE_REPO" "$fork"
-  git -C "$fork" checkout --quiet -- .
-  git -C "$fork" apply "$here/fork-probe.patch"
+  if [ "$(git -C "$fork" rev-parse HEAD)" != "$AQUASCOPE_COMMIT" ]; then
+    echo "work/aquascope is not at the pinned $AQUASCOPE_COMMIT ($AQUASCOPE_TAG); delete it to clone the pin" >&2
+    exit 1
+  fi
   CARGO_TARGET_DIR="$work/target-build" cargo +"$RUST_NIGHTLY" install --locked --force \
     --path "$fork/crates/aquascope_front" --root "$install"
 fi

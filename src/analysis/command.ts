@@ -6,7 +6,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { classifyBuildErrors, Failure, parseCompilerErrors, runFailure } from './errors';
+import { classifyBuildErrors, crateBuildFailure, crateCompileErrors, Failure, parseCompilerErrors, runFailure, unsupportedTarget } from './errors';
 import { interpret } from './interpret';
 import { locateCrate, realPath, type CrateInProject } from './project';
 import { inCopy, syncProject, type UnsavedEditor } from './projectCopy';
@@ -20,7 +20,14 @@ import type { VisualizationPanel } from '../visualization/panel';
 
 const DEFAULT_TIMEOUT_SECONDS = 60;
 /** Codes whose details are in the output channel, so their message offers to show it. */
-const WITH_DETAILS: AnalyzeErrorCode[] = ['singleFileLimit', 'compileErrors', 'programFailed', 'timeout', 'toolFailed'];
+const WITH_DETAILS: AnalyzeErrorCode[] = ['singleFileLimit', 'compileErrors', 'dependencyMissing', 'linkerMissing', 'programFailed', 'timeout', 'toolFailed'];
+/** The notification's button that analyses the file alone after a crate could not be (feature 008, D8). */
+const ANALYZE_ALONE = 'Analyze This File Alone';
+
+/** Options of `aquascope.analyzeAtCursor` besides the URI: `alone` analyses the file without its crate (D8). */
+export interface AnalyzeOptions {
+  alone?: boolean;
+}
 
 /**
  * The run in progress, of either command; a new run cancels it, so only the latest request is answered
@@ -53,8 +60,14 @@ function timeoutSeconds(config: vscode.WorkspaceConfiguration): number {
 /**
  * Analyses the function at the cursor. With `target`, the URI the editor title bar passes (feature 006 R3),
  * the editor showing that document is analysed whichever group has focus; without it, the active editor.
+ * With `options.alone`, the file is analysed alone even when it belongs to a crate (feature 008, D8).
  */
-export async function analyzeAtCursor(context: vscode.ExtensionContext, panel: VisualizationPanel, target?: vscode.Uri): Promise<AnalyzeResult> {
+export async function analyzeAtCursor(
+  context: vscode.ExtensionContext,
+  panel: VisualizationPanel,
+  target?: vscode.Uri,
+  options: AnalyzeOptions = {},
+): Promise<AnalyzeResult> {
   const editor = target ? editorFor(target) : vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'rust') {
     return report(error('noRustEditor', 'Open a Rust file and put the cursor inside a function, then run "Aquascope: Analyze Function at Cursor".'), panel);
@@ -79,8 +92,10 @@ export async function analyzeAtCursor(context: vscode.ExtensionContext, panel: V
       .filter((d) => d.isDirty && d.uri.scheme === 'file')
       .map((d) => ({ file: d.uri.fsPath, text: d === document ? source : d.getText() })),
   };
-  const result = await runExclusive('Aquascope: analysing the function at the cursor', (token, report) => analyze(job, token, report));
-  return report(result, panel, job.source);
+  const result = await runExclusive('Aquascope: analysing the function at the cursor', (token, report) =>
+    options.alone ? analyzeFile(job, token) : analyze(job, token, report),
+  );
+  return report(result, panel, job.source, document.uri);
 }
 
 /**
@@ -160,12 +175,12 @@ async function analyze(job: Job, token: vscode.CancellationToken, report: Report
       });
       switch (located.kind) {
         case 'crate':
-          return await analyzeCrate(job, located, token, report);
+          return offerFileAlone(await analyzeCrate(job, located, token, report));
         case 'buildScript':
-          return error('toolFailed', `This version cannot analyse a build script (the build.rs of ${located.packageName}).`);
+          return offerFileAlone(failed(unsupportedTarget(located.packageName)));
         case 'metadataFailed':
           channel.appendLine(`  cargo metadata failed:\n${located.detail}`);
-          return error('toolFailed', "cargo could not read the project's manifest. The details are in the Aquascope output.");
+          return offerFileAlone(error('toolFailed', "cargo could not read the project's manifest. The details are in the Aquascope output."));
         case 'runFailed':
           return failed(runFailure(located.outcome, 'cargo metadata', job.timeoutSeconds));
         case 'none':
@@ -206,6 +221,10 @@ async function analyzeCrate(job: Job, crate: CrateInProject, token: vscode.Cance
     if (preload.kind === 'exited' && preload.exitCode === 0) {
       await fs.writeFile(preloaded, '');
     } else {
+      // A missing dependency stops the analysis too. A missing linker may not: a proc macro that is a member
+      // of the workspace fails only the functions that use it (R7), so the analysis still runs.
+      const missing = crateBuildFailure(preload.stderr);
+      if (missing?.code === 'dependencyMissing') return failed(missing);
       // Preload checks every feature, which some crates cannot; the analysis then builds what it needs itself.
       channel.appendLine('  preload failed; the analysis runs with no time limit');
       timeoutMs = undefined;
@@ -214,12 +233,43 @@ async function analyzeCrate(job: Job, crate: CrateInProject, token: vscode.Cance
 
   report('analysing');
   const analysis = await tool(['aquascope', '--crate-of', path.join(workspace, crate.relativePath), 'permissions'], timeoutMs);
-  if (!succeeded(analysis)) return failed(runFailure(analysis, 'Aquascope', job.timeoutSeconds));
+  if (!succeeded(analysis)) {
+    const failure = analysis.kind === 'exited' ? crateBuildFailure(analysis.stderr) : undefined;
+    return failed(failure ?? runFailure(analysis, 'Aquascope', job.timeoutSeconds));
+  }
   const selection = selectAtCursor(analysis.stdout, job.source, job.cursor, crate.relativePath);
+  if (selection.kind === 'none') {
+    // A workspace proc macro that could not be linked fails the functions using it, or the whole crate when
+    // the crate imports it with `use`, with exit code 0 either way and the linker's error in stderr (R7).
+    const linker = crateBuildFailure(analysis.stderr);
+    if (linker) return failed(linker);
+  }
   if (selection.kind === 'none' && selection.buildErrors.length > 0) {
-    return error('compileErrors', 'The function at the cursor could not be analysed because the crate has compile errors. The details are in the Aquascope output.');
+    // Compile errors, which Aquascope silences, so cargo is asked for them (R8, as 003's D6).
+    const check = await tool(['check', '--message-format=json', '-p', crate.packageName, ...targetFlags(crate)], timeoutMs);
+    if (check.kind !== 'exited') return failed(runFailure(check, 'cargo check', job.timeoutSeconds));
+    const errors = parseCompilerErrors(check.stdout);
+    channel.appendLine(`  compiler errors (${errors.length}):`);
+    for (const e of errors) channel.appendLine(e.rendered.trimEnd());
+    return failed(crateCompileErrors(errors));
   }
   return fromSelection(selection, analysis.stdout);
+}
+
+/** cargo's flags selecting the crate's target, as `--crate-of` selected it. */
+function targetFlags(crate: CrateInProject): string[] {
+  const { kind, name } = crate.target;
+  if (kind === 'bin' || kind === 'test' || kind === 'example' || kind === 'bench') return [`--${kind}`, name];
+  return ['--lib'];
+}
+
+/**
+ * A crate run's error, marked so that its notification offers to analyse the file alone (D8). Not when the
+ * user cancelled, nor when there is no function at the cursor, which the file alone would not change.
+ */
+function offerFileAlone(result: AnalyzeResult): AnalyzeResult {
+  const offer = result.kind === 'error' && result.code !== 'cancelled' && result.code !== 'noFunction';
+  return offer ? { ...result, offersFileAlone: true } : result;
 }
 
 /** Analyses the file at the cursor alone, in a temporary single-file crate (feature 003). */
@@ -288,8 +338,9 @@ function describe(output: AnalysisOutput): string {
  * Shows the outcome (003 R10, 004 R1 and R5) and returns it unchanged, for the tests and later features
  * (R12). An analysis goes to the panel; an error is a notification and also replaces the diagram in an
  * open panel, except when the user cancelled or no Rust editor was active, which leave the panel as it was.
+ * A crate's error offers to analyse the file at `uri` alone (feature 008, D8).
  */
-function report(result: AnalyzeResult, panel: VisualizationPanel, source?: string): AnalyzeResult {
+function report(result: AnalyzeResult, panel: VisualizationPanel, source?: string, uri?: vscode.Uri): AnalyzeResult {
   if (result.kind === 'ok') {
     if (source !== undefined) panel.showAnalysis(result.output, source);
     return result;
@@ -302,9 +353,13 @@ function report(result: AnalyzeResult, panel: VisualizationPanel, source?: strin
   outputChannel().appendLine(`  result: ${result.code}: ${result.message}`);
   if (result.code === 'cancelled') return result; // The user asked for it, or a newer run replaced it.
   panel.showMessage(result.message);
-  const actions = WITH_DETAILS.includes(result.code) ? ['Show Output'] : [];
+  const actions = [...(result.offersFileAlone && uri ? [ANALYZE_ALONE] : []), ...(WITH_DETAILS.includes(result.code) ? ['Show Output'] : [])];
   void vscode.window.showErrorMessage(`Aquascope: ${result.message}`, ...actions).then((choice) => {
-    if (choice) outputChannel().show(true);
+    if (choice === ANALYZE_ALONE) {
+      void vscode.commands.executeCommand('aquascope.analyzeAtCursor', uri, { alone: true } satisfies AnalyzeOptions);
+    } else if (choice) {
+      outputChannel().show(true);
+    }
   });
   return result;
 }
