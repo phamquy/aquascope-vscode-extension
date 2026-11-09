@@ -1,7 +1,7 @@
 ---
 id: T-051
 title: "Probe whole-program runs and the fork changes"
-status: review
+status: done
 priority: medium
 feature: "009-whole-crate-stack-heap"
 created: 2026-11-09
