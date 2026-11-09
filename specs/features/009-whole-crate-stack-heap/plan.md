@@ -13,7 +13,7 @@ The feature keeps what features 007 and 008 built. Feature 007 supplies the Show
 - `extern crate self as <library name>;`, so that the binary's `use minigrep::Config;` names the crate itself;
 - `#[path = "<binary's root file>"] mod <hidden module>;`, so that the binary's code becomes a module of the library.
 
-The run then starts at that module's `main`. Because the lines are added at the end, every position in every file stays the same. The fork adds them through the compiler's file loader, so nothing is written to disk. Every function of the library and the binary is then in the crate being compiled, and every step in `main.rs`, `lib.rs` and `config.rs` is recorded, with `main`'s frame below the others. The probe checks this on the fixtures. If it fails, the spec is revised before T-052, either toward the first way or toward drawing only the binary's own files.
+The run then starts at that module's `main`. Because the lines are added at the end, every position in every file stays the same. The fork adds them through the compiler's file loader, so nothing is written to disk. Every function of the library and the binary is then in the crate being compiled, and every step in `main.rs`, `lib.rs` and `config.rs` is recorded, with `main`'s frame below the others. T-051's probe confirmed this: minigrep's run had 25 steps in its three files, with `main`'s frame below `Config::build`'s (spec, Appendix B). It also found that Miri runs only an executable crate, so the library is compiled as one, with no `main` at its root.
 
 **What the probe settles first (D3, D4, D5).** T-051 builds `spikes/009-whole-crate-interpreter/probe.sh` in the style of T-044's probe, with a scratch build of the fork carrying the changes the next paragraph lists. Its fixture projects are:
 
@@ -31,17 +31,18 @@ For each, it records the following, and the results go into the spec's Appendix 
 - the steps in the whole run and in each file, the output size, and the times of the first and later runs;
 - what a run with missing arguments returns, and what the interpreter's own error message says when a run fails.
 
-The captured outputs become test data in `src/test/fixtures/data/stack-heap-crate/`, as T-044's did.
+The captured outputs become test data in `src/test/fixtures/data/stack-heap-crate/`, as T-044's did. T-051 ran it on 2026-11-09. The results confirmed D1, D3 and D4, settled D5, and added D7, because Aquascope's interpreter crashed on most of the fixtures' string values. The paragraphs below reflect them.
 
-**The fork (D3, D4).** T-052 makes five changes in [phamquy/aquascope](https://github.com/phamquy/aquascope), on a branch from `v0.4.0-vscode.2`:
+**The fork (D3, D4, D7).** T-052 makes six changes in [phamquy/aquascope](https://github.com/phamquy/aquascope), on a branch from `v0.4.0-vscode.2`:
 
-1. **Arguments and file access.** The interpreter command takes the program's arguments and passes them to Miri as the program's command line, with the binary's name first. A separate option lifts isolation, as `-Zmiri-disable-isolation` does (D3).
-2. **Whole-program builds.** For the interpreter, rustc_plugin's `modify_cargo` gives every crate Miri's standard library and `-Zalways-encode-mir`, as `cargo miri` does. Without this, the compiled code of most library and dependency functions is not kept in a form Miri can run, and crates.io dependencies are built against the ordinary standard library.
+1. **Arguments and file access.** The interpreter command takes the program's arguments and passes them to Miri as the program's command line, after the crate's name. A separate option lifts isolation, as `-Zmiri-disable-isolation` does (D3).
+2. **Whole-program builds.** For the interpreter, rustc_plugin's `modify_cargo` gives every crate Miri's standard library and `-Zalways-encode-mir`, as `cargo miri` does. It also names the host as the target, so build scripts and proc macros keep the ordinary standard library. Without this change, the probe found that the functions of a library or a workspace member have no compiled code Miri can run, and that a crates.io dependency fails to build against a standard library from two places.
 3. **Frame paths.** Each frame of a trace names its file, relative to the workspace root, as feature 008's D3 did for permissions results (D4).
-4. **One crate.** An option names the binary's root file. With it, the library crate is compiled with the two lines above, and the run starts at the hidden module's `main`.
-5. **Error messages.** When the interpreter fails, its error message goes to standard error instead of being discarded, so the extension's log says why.
+4. **One crate.** An option names the binary's root file. With it, the library crate is compiled with the two lines above, as an executable with `-Zcrate-attr=no_main`, and the run starts at the hidden module's `main`.
+5. **Error messages.** When the interpreter fails, its error message goes to standard error instead of being discarded, so the extension's log says why. In the probe, it named the program's exit code or the operation that isolation refused.
+6. **Values the interpreter could not read (D7).** A `&str` that is not reached through a `String` is read as its characters, a string literal's memory is shown with the heap, a trait object is shown by its type, and a pointer into an allocation with no sized layout names the allocation. Today each of these crashes the run, in feature 007's single-file run too.
 
-Each change gets a test in Aquascope's suite and passes its formatting and clippy checks. The fork is tagged `v0.4.0-vscode.3`. Changes 1, 2, 3 and 5 are offered upstream; change 4 exists only to serve the extension and stays in the fork. As in T-045, the task updates `pin.env`, rebuilds the development bundle, regenerates the bindings and updates ADR 0004.
+Each change gets a test in Aquascope's suite and passes its formatting and clippy checks. The fork is tagged `v0.4.0-vscode.3`. Changes 1, 2, 3, 5 and 6 are offered upstream; change 4 exists only to serve the extension and stays in the fork. The probe's patch, `spikes/009-whole-crate-interpreter/fork-probe.patch`, is the starting point. As in T-045, the task updates `pin.env`, rebuilds the development bundle, regenerates the bindings and updates ADR 0004.
 
 **Choosing the binary and the arguments (R1, R3, D1, D2).** Feature 008's metadata reading in `project.ts` gains the package's binaries, each with its name and root file, and the root file of its library. A new module, `program.ts`, makes both choices:
 
@@ -60,7 +61,7 @@ The command also accepts an optional argument that gives the binary, the argumen
 
 The program's working folder is the one cargo gives the compiler, the copy of the workspace root, which the probe confirms (D3). Its standard input is empty, as the runner already gives no input, so a program that reads input sees the input end. If the one-crate build fails to compile while the binary alone compiles, which is the case of a binary whose own files use `crate::` paths, the run is repeated with the binary alone. The log records the switch, and only the binary's files then have steps.
 
-**Drawing the active file's steps (R5, R8, D4).** `traceInput.ts` keeps the steps whose current frame is in the active file, by the path each frame now carries, matched against the file's path relative to the workspace root as feature 008's selection does. Each kept step keeps its whole stack and heap. The vendored renderer reads every frame's position against the drawn file and throws on a position outside it, though it draws only the current frame's. So frames from other files keep their names and locals, and their positions are replaced by the start of the active file. Columns are converted to UTF-16 with the active file's text, as feature 007 does. Feature 007's step limit, notes and undefined-behaviour marking then apply to the kept steps (R5). If the probe finds that the hidden module's name shows in `main`'s frame, the frame is renamed to `main`. A run with no step in the active file gets a `noStepsInFile` message that names the files that do have steps (R8, AC8).
+**Drawing the active file's steps (R5, R8, D4).** `traceInput.ts` keeps the steps whose current frame is in the active file, by the path each frame now carries, matched against the file's path relative to the workspace root as feature 008's selection does. Each kept step keeps its whole stack and heap. The vendored renderer reads every frame's position against the drawn file and throws on a position outside it, though it draws only the current frame's. So frames from other files keep their names and locals, and their positions are replaced by the start of the active file. Columns are converted to UTF-16 with the active file's text, as feature 007 does. Feature 007's step limit, notes and undefined-behaviour marking then apply to the kept steps (R5). In the one-crate build `main`'s frame is named `__aquascope_main::main`, as the probe found, so it is renamed to `main`. A run with no step in the active file gets a `noStepsInFile` message that names the files that do have steps (R8, AC8).
 
 **Failures (R6, R7, D6).** The crate run reuses feature 008's classification:
 
@@ -79,7 +80,7 @@ Feature 007's `programFailed` message now names the arguments the program was gi
 ## Files touched
 
 - `spikes/009-whole-crate-interpreter/` (new): `probe.sh`, its fixture projects and its fork patch.
-- The fork: `crates/aquascope_front/src/plugin.rs` for the options and `modify_cargo`; `crates/aquascope/src/interpreter/` for the arguments, isolation, frame paths, one-crate entry and error message; their tests; tag `v0.4.0-vscode.3`.
+- The fork: `crates/aquascope_front/src/plugin.rs` for the options and `modify_cargo`; `crates/aquascope/src/interpreter/` for the arguments, isolation, frame paths, one-crate build, error message and the values it could not read; their tests; tag `v0.4.0-vscode.3`.
 - `spikes/002-toolchain-bundling/pin.env`, `docs/adr/0004-build-aquascope-from-a-fork.md`, and `src/analysis/bindings/` (regenerated).
 - `src/analysis/project.ts`: binaries and library root. `src/analysis/program.ts` (new): choosing the binary, asking for and splitting the arguments, and remembering both.
 - `src/analysis/interpret.ts`: the crate run, its first-run build and the one-crate fallback. `src/analysis/command.ts`: choosing the crate run or the single-file run, and the Run This File Alone action. `src/extension.ts`: the command's optional argument.
@@ -98,7 +99,7 @@ Feature 007's `programFailed` message now names the arguments the program was gi
 - **Miri's speed.** Miri interprets every function, including the standard library's, so a whole program can be slow and can take many steps before it reaches the active file. Feature 003's timeout applies after the first build. The probe's step counts may revise feature 007's step limit (D5).
 - **The entry point.** Aquascope starts the program at `main` itself, skipping the standard library's start-up code. On macOS, Miri's own functions supply the program's arguments without that code, and the probe checks this. Other platforms are out of scope.
 - **Disk use.** Each project gains a second build folder of its dependencies, built with Miri's settings. As in feature 008, nothing cleans it up.
-- **A growing fork.** The fork will carry eight changes, one of which upstream will not take. Each Aquascope upgrade means rebasing them.
+- **A growing fork.** The fork will carry nine changes, one of which upstream will not take. Each Aquascope upgrade means rebasing them.
 
 ## Test strategy
 
@@ -110,14 +111,14 @@ Feature 007's `programFailed` message now names the arguments the program was gi
   - `errors.ts`: `programFailed` with and without arguments, `noBinary` and `noStepsInFile`;
   - `interpret.ts`: the command line of a crate run, with and without a library, and the fallback decision.
 - **Aquascope's own suite** tests the fork's changes (T-052).
-- **End-to-end tests against the development bundle** go in `stackHeapCrate.test.ts`: AC1 to AC5, AC7 and AC8. Feature 007's `stackHeap.test.ts` stays unchanged, for AC6. The tests pass the binary and the arguments through the command's argument instead of driving the dialogs, which the unit tests cover. The fixtures depend on neither the network nor the machine's cargo cache, as in feature 008.
+- **End-to-end tests against the development bundle** go in `stackHeapCrate.test.ts`: AC1 to AC5 and AC7 to AC9. Feature 007's `stackHeap.test.ts` stays unchanged, for AC6. The tests pass the binary and the arguments through the command's argument instead of driving the dialogs, which the unit tests cover. The fixtures depend on neither the network nor the machine's cargo cache, as in feature 008.
 - **Packaging:** the strict test run of every package runs the end-to-end tests against the packaged bundle, as today.
 
 ## Appendix A: module responsibilities
 
 | Module | Requirements | Decides | Tested by |
 | --- | --- | --- | --- |
-| Fork: `plugin.rs`, `interpreter/` | R3 to R5, D3, D4 | Arguments, isolation, whole-program builds, frame paths, one-crate build, error message | Aquascope's suite |
+| Fork: `plugin.rs`, `interpreter/` | R3 to R5, D3, D4, D7 | Arguments, isolation, whole-program builds, frame paths, one-crate build, error message, values it could not read | Aquascope's suite |
 | `project.ts` | R1 | The package's binaries and library root | Unit, from captured metadata |
 | `program.ts` | R1, R3, D1, D2 | Which binary; the arguments, split and remembered | Unit |
 | `interpret.ts` | R2, R4, R6, D3, D5 | Crate run or single-file run; first build; one-crate fallback | Unit; end to end |
@@ -137,6 +138,7 @@ Feature 007's `programFailed` message now names the arguments the program was gi
 | AC6 | Feature 007's `stackHeap.test.ts`, unchanged |
 | AC7 | `program.test.ts`: the input box is filled with the project's last arguments; `stackHeapCrate.test.ts`: a run's arguments are saved for the project |
 | AC8 | `stackHeapCrate.test.ts`: a run from a file of the package that the program never reaches gives `noStepsInFile`, naming the files with steps |
+| AC9 | `stackHeapCrate.test.ts`: a program with `let s = "hi";`, from a file of a package and from a file alone, is drawn, with the characters in the heap |
 
 ## Appendix C: the interpreter's limit to one crate
 
