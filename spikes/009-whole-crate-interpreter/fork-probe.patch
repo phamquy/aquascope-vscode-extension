@@ -1,0 +1,566 @@
+diff --git a/crates/aquascope/src/interpreter/mapper.rs b/crates/aquascope/src/interpreter/mapper.rs
+index e2a62bf..eb5c7e5 100644
+--- a/crates/aquascope/src/interpreter/mapper.rs
++++ b/crates/aquascope/src/interpreter/mapper.rs
+@@ -160,6 +160,7 @@ pub fn group_steps<Loc1, Loc2: PartialEq + Clone>(
+             location: current_loc,
+             name: frame.name,
+             body_span: frame.body_span,
++            file_path: frame.file_path,
+             locals: frame.locals,
+           })
+         })
+@@ -194,6 +195,7 @@ mod test {
+         frames: vec![MFrame {
+           name: name.to_owned(),
+           body_span: dummy_char_range,
++          file_path: String::new(),
+           locals: Vec::new(),
+           location,
+         }],
+diff --git a/crates/aquascope/src/interpreter/mod.rs b/crates/aquascope/src/interpreter/mod.rs
+index f922f21..9ae56a8 100644
+--- a/crates/aquascope/src/interpreter/mod.rs
++++ b/crates/aquascope/src/interpreter/mod.rs
+@@ -1,5 +1,11 @@
+ //! Rust runtime visualizer using Miri
+ 
++use std::{
++  io,
++  path::{Path, PathBuf},
++  sync::Arc,
++};
++
+ use anyhow::Result;
+ use either::Either;
+ use rustc_data_structures::fx::FxIndexMap;
+@@ -14,12 +20,144 @@ mod step;
+ 
+ pub use mvalue::MValue;
+ use rustc_session::Session;
++use rustc_span::source_map::{FileLoader, RealFileLoader};
+ pub use step::MTrace;
+ 
+ use crate::interpreter::mapper::Mapper;
+ 
+-pub(crate) fn interpret(tcx: TyCtxt) -> Result<MTrace<CharRange>> {
+-  let mut evaluator = step::VisEvaluator::new(tcx).unwrap();
++/// How the interpreter runs the program.
++#[derive(Default)]
++pub struct InterpretOptions {
++  /// Lift Miri's isolation (`-Zmiri-disable-isolation`).
++  pub allow_io: bool,
++  /// The program's arguments; the crate's name is given before them.
++  pub program_args: Vec<String>,
++  /// Compile a binary's root file into the library crate (see `OneCrate`).
++  pub fold: Option<OneCrate>,
++}
++
++/// The module that holds a binary's root file when it is compiled into its
++/// package's library crate.
++pub const FOLD_MODULE: &str = "__aquascope_main";
++
++/// A binary compiled as a module of its package's library, so that the
++/// library's functions are in the crate being interpreted, which is the only
++/// crate whose functions the interpreter can step through. The library's root
++/// file is read with lines added at its end, which keeps every position:
++/// `extern crate self as <library>;`, so that the binary's `use <library>::..`
++/// names the crate itself, and a `#[path]` module holding the binary's root.
++pub struct OneCrate {
++  root: PathBuf,
++  appendix: String,
++}
++
++impl OneCrate {
++  /// `compiler_args` are the library crate's; `main` is the binary's root
++  /// file, absolute.
++  pub fn new(compiler_args: &[String], main: &Path) -> Self {
++    let root = compiler_args
++      .iter()
++      .find(|a| a.ends_with(".rs"))
++      .map(PathBuf::from)
++      .expect("no crate root in the compiler's arguments");
++    let crate_name = compiler_args
++      .iter()
++      .position(|a| a == "--crate-name")
++      .and_then(|i| compiler_args.get(i + 1))
++      .expect("no --crate-name in the compiler's arguments")
++      .clone();
++    let root_dir = root
++      .canonicalize()
++      .expect("crate root not found")
++      .parent()
++      .unwrap()
++      .to_path_buf();
++    let rel = relative_path(&root_dir, main);
++    let appendix = format!(
++      "\nextern crate self as {crate_name};\n#[path = {:?}]\nmod {FOLD_MODULE};\n",
++      rel.to_string_lossy()
++    );
++    OneCrate { root, appendix }
++  }
++
++  /// The library crate's compiler arguments, changed so that it compiles as
++  /// an executable, which Miri requires, whose `main` is not at its root.
++  pub fn compiler_args(&self, args: &[String]) -> Vec<String> {
++    let mut out = Vec::with_capacity(args.len() + 1);
++    let mut iter = args.iter();
++    while let Some(arg) = iter.next() {
++      if arg == "--crate-type" {
++        iter.next();
++        out.extend(["--crate-type".to_owned(), "bin".to_owned()]);
++      } else if arg.starts_with("--crate-type=") {
++        out.push("--crate-type=bin".to_owned());
++      } else {
++        out.push(arg.clone());
++      }
++    }
++    out.push("-Zcrate-attr=no_main".to_owned());
++    out
++  }
++
++  fn loader(&self) -> FoldLoader {
++    FoldLoader {
++      root: self.root.canonicalize().unwrap_or_else(|_| self.root.clone()),
++      appendix: self.appendix.clone(),
++    }
++  }
++}
++
++/// `target` relative to the folder `base`; both absolute.
++fn relative_path(base: &Path, target: &Path) -> PathBuf {
++  let base: Vec<_> = base.components().collect();
++  let target: Vec<_> = target.components().collect();
++  let common = base
++    .iter()
++    .zip(&target)
++    .take_while(|(a, b)| a == b)
++    .count();
++  let mut rel = PathBuf::new();
++  for _ in common..base.len() {
++    rel.push("..");
++  }
++  for c in &target[common..] {
++    rel.push(c);
++  }
++  rel
++}
++
++struct FoldLoader {
++  root: PathBuf,
++  appendix: String,
++}
++
++impl FileLoader for FoldLoader {
++  fn file_exists(&self, path: &Path) -> bool {
++    RealFileLoader.file_exists(path)
++  }
++
++  fn read_file(&self, path: &Path) -> io::Result<String> {
++    let mut text = RealFileLoader.read_file(path)?;
++    if path.canonicalize().is_ok_and(|p| p == self.root) {
++      text.push_str(&self.appendix);
++    }
++    Ok(text)
++  }
++
++  fn read_binary_file(&self, path: &Path) -> io::Result<Arc<[u8]>> {
++    RealFileLoader.read_binary_file(path)
++  }
++
++  fn current_directory(&self) -> io::Result<PathBuf> {
++    RealFileLoader.current_directory()
++  }
++}
++
++pub(crate) fn interpret(
++  tcx: TyCtxt,
++  options: &InterpretOptions,
++) -> Result<MTrace<CharRange>> {
++  let mut evaluator = step::VisEvaluator::new(tcx, options)?;
+   let mir_steps = evaluator.eval()?;
+ 
+   if log::log_enabled!(log::Level::Trace) {
+@@ -66,13 +204,15 @@ pub(crate) fn interpret(tcx: TyCtxt) -> Result<MTrace<CharRange>> {
+ 
+ pub struct InterpretCallbacks {
+   should_fail: bool,
++  options: InterpretOptions,
+   pub result: Option<Result<MTrace<CharRange>>>,
+ }
+ 
+ impl InterpretCallbacks {
+-  pub fn new(should_fail: bool) -> Self {
++  pub fn new(should_fail: bool, options: InterpretOptions) -> Self {
+     InterpretCallbacks {
+       should_fail,
++      options,
+       result: None,
+     }
+   }
+@@ -112,6 +252,9 @@ impl rustc_driver::Callbacks for InterpretCallbacks {
+     if self.should_fail {
+       config.override_queries = Some(override_queries);
+     }
++    if let Some(fold) = &self.options.fold {
++      config.file_loader = Some(Box::new(fold.loader()));
++    }
+   }
+ 
+   fn after_analysis(
+@@ -119,7 +262,7 @@ impl rustc_driver::Callbacks for InterpretCallbacks {
+     _compiler: &rustc_interface::interface::Compiler,
+     tcx: TyCtxt<'_>,
+   ) -> rustc_driver::Compilation {
+-    self.result = Some(interpret(tcx));
++    self.result = Some(interpret(tcx, &self.options));
+     rustc_driver::Compilation::Stop
+   }
+ }
+diff --git a/crates/aquascope/src/interpreter/mvalue.rs b/crates/aquascope/src/interpreter/mvalue.rs
+index 4056207..e9853f9 100644
+--- a/crates/aquascope/src/interpreter/mvalue.rs
++++ b/crates/aquascope/src/interpreter/mvalue.rs
+@@ -170,6 +170,23 @@ impl<'tcx> Reader<'_, 'tcx> {
+   ) -> InterpResult<'tcx, MValue> {
+     let el_ty = base.layout.ty;
+     let stride = base.layout.size;
++    // A `str` reached before any `String` owning it, such as a string literal
++    // or a `&str` into an array on the stack, is read as its characters.
++    // Reading it as a value would read the same pointer again, forever
++    // (upstream issues #75, #118).
++    if el_ty.is_str() {
++      let len = base.meta().unwrap_meta().to_target_usize(&self.ev.ecx)?;
++      let u8_ty = self.ev.ecx.tcx.types.u8;
++      let MValue::Array(values) =
++        self.read_array(base, Size::from_bytes(1), len, u8_ty)?
++      else {
++        unreachable!()
++      };
++      return interp_ok(MValue::Array(values.map(|el| {
++        let MValue::Uint(c) = el else { unreachable!() };
++        MValue::Char(c as usize)
++      })));
++    }
+     interp_ok(match self.heap_alloc_kinds.last() {
+       Some(HeapAllocKind::String { len }) => {
+         let array = self.read_array(base, stride, *len, el_ty)?;
+@@ -226,15 +243,16 @@ impl<'tcx> Reader<'_, 'tcx> {
+ 
+       // Get the kind of memory we're looking at (either stack or heap)
+       // from the allocation metadata.
+-      let (memory_kind, _) = self
++      // A global allocation, such as a string literal's, is not in the
++      // machine's map until it is written; it is shown with the heap.
++      let memory_kind = self
+         .ev
+         .ecx
+         .memory
+         .alloc_map()
+         .get(alloc_id)
+-        .unwrap_or_else(|| {
+-          panic!("Missing memory allocation for alloc: {alloc_id:?}")
+-        });
++        .map(|(kind, _)| *kind)
++        .unwrap_or(MemoryKind::Machine(miri::MiriMemoryKind::Global));
+ 
+       // Generate a corresponding `MMemorySegment` that locates the base allocation,
+       // and a `TyAndLayout` that describes the allocation's entire layout.
+@@ -266,6 +284,10 @@ impl<'tcx> Reader<'_, 'tcx> {
+ 
+           let layout = match self.heap_alloc_kinds.last() {
+             Some(HeapAllocKind::Vec { el_ty, .. }) => *el_ty,
++            // A `str` is located like a `String`'s buffer: an array of bytes.
++            _ if mplace.layout.ty.is_str() => {
++              self.ev.ecx.layout_of(self.ev.ecx.tcx.types.u8)?
++            }
+             _ => mplace.layout,
+           };
+ 
+@@ -283,8 +305,14 @@ impl<'tcx> Reader<'_, 'tcx> {
+     // The pointer could point anywhere inside the allocation, so we use
+     // `get_path_segments` to reverse-engineer a path from the memory location.
+     let meta = mplace.meta();
+-    let parts =
+-      self.get_path_segments(alloc_info.size, alloc_layout, mplace, offset);
++    // An allocation whose layout has no size, such as a trait object's,
++    // cannot be divided into a path; the pointer names the allocation.
++    let parts = if alloc_layout.size.bytes() == 0 && alloc_info.size.bytes() > 0
++    {
++      Vec::new()
++    } else {
++      self.get_path_segments(alloc_info.size, alloc_layout, mplace, offset)
++    };
+     let path = MPath { segment, parts };
+ 
+     let range = match meta {
+@@ -565,6 +593,14 @@ impl<'tcx> Reader<'_, 'tcx> {
+         self.read(&inner)?
+       }
+ 
++      // A trait object is shown by its type alone (upstream: unimplemented).
++      TyKind::Dynamic(..) => MValue::Adt {
++        name: ty.to_string(),
++        variant: None,
++        fields: Vec::new(),
++        alloc_kind: None,
++      },
++
+       kind => todo!("{:?} / {:?}", op, kind),
+     };
+ 
+diff --git a/crates/aquascope/src/interpreter/step.rs b/crates/aquascope/src/interpreter/step.rs
+index 8b3939e..4d20ba9 100644
+--- a/crates/aquascope/src/interpreter/step.rs
++++ b/crates/aquascope/src/interpreter/step.rs
+@@ -11,7 +11,10 @@ use either::Either;
+ use itertools::Itertools;
+ use miri::*;
+ use rustc_abi::{ExternAbi, FieldsShape, Size};
+-use rustc_hir::def_id::DefId;
++use rustc_hir::{
++  def::DefKind,
++  def_id::{DefId, LOCAL_CRATE},
++};
+ use rustc_middle::{
+   mir::{
+     self, Local, Location, Place, PlaceElem, RETURN_PLACE,
+@@ -22,13 +25,33 @@ use rustc_middle::{
+     layout::{HasTyCtxt, TyAndLayout},
+   },
+ };
+-use rustc_session::CtfeBacktrace;
++use rustc_session::{CtfeBacktrace, config::EntryFnType};
+ use rustc_span::Span;
+ use rustc_utils::{PlaceExt, source_map::range::CharRange};
+ use serde::Serialize;
+ use ts_rs::TS;
+ 
+-use super::mvalue::{MMemorySegment, MPathSegment, MValue};
++use super::{
++  FOLD_MODULE, InterpretOptions,
++  mvalue::{MMemorySegment, MPathSegment, MValue},
++};
++use crate::analysis::span_file_path;
++
++/// The `main` of a binary compiled into its library crate (`OneCrate`).
++fn folded_main(tcx: TyCtxt) -> Option<DefId> {
++  tcx
++    .hir_crate_items(())
++    .definitions()
++    .map(|def_id| def_id.to_def_id())
++    .find(|&def_id| {
++      tcx.def_kind(def_id) == DefKind::Fn
++        && tcx.opt_item_name(def_id).is_some_and(|n| n.as_str() == "main")
++        && tcx
++          .opt_parent(def_id)
++          .and_then(|p| tcx.opt_item_name(p))
++          .is_some_and(|n| n.as_str() == FOLD_MODULE)
++    })
++}
+ 
+ #[derive(Serialize, Debug, TS)]
+ #[ts(export)]
+@@ -43,6 +66,8 @@ pub struct MLocal {
+ pub struct MFrame<L> {
+   pub name: String,
+   pub body_span: CharRange,
++  /// The path of the file holding the function, as `span_file_path` gives it.
++  pub file_path: String,
+   pub location: L,
+   pub locals: Vec<MLocal>,
+ }
+@@ -167,10 +192,20 @@ struct LocalFrame<'a, 'tcx> {
+ }
+ 
+ impl<'tcx> VisEvaluator<'tcx> {
+-  pub fn new(tcx: TyCtxt<'tcx>) -> Result<Self> {
+-    let (main_id, entry_fn_type) = tcx
+-      .entry_fn(())
+-      .context("no main or start function found")?;
++  pub fn new(tcx: TyCtxt<'tcx>, options: &InterpretOptions) -> Result<Self> {
++    let (main_id, entry_fn_type) = match tcx.entry_fn(()) {
++      Some(entry) => entry,
++      // A binary compiled into its library crate (`OneCrate`) is a module.
++      None => (
++        folded_main(tcx).context("no main or start function found")?,
++        EntryFnType::Main {
++          sigpipe: rustc_session::config::sigpipe::DEFAULT,
++        },
++      ),
++    };
++    let args = std::iter::once(tcx.crate_name(LOCAL_CRATE).to_string())
++      .chain(options.program_args.iter().cloned())
++      .collect();
+     let mut ecx = miri::create_ecx(
+       tcx,
+       main_id,
+@@ -180,6 +215,12 @@ impl<'tcx> VisEvaluator<'tcx> {
+         // have to make sure miri doesn't complain about us poking around memory
+         validation: miri::ValidationMode::No,
+         borrow_tracker: None,
++        args,
++        isolated_op: if options.allow_io {
++          IsolatedOp::Allow
++        } else {
++          MiriConfig::default().isolated_op
++        },
+         ..Default::default()
+       },
+       None,
+@@ -267,11 +308,10 @@ impl<'tcx> VisEvaluator<'tcx> {
+     let name = self.fn_name(def_id);
+ 
+     let tcx = *self.ecx.tcx;
+-    let body_span = CharRange::from_span(
+-      body_span(tcx, frame.instance().def_id(), BodySpanType::Whole),
+-      tcx.sess.source_map(),
+-    )
+-    .unwrap();
++    let whole = body_span(tcx, frame.instance().def_id(), BodySpanType::Whole);
++    let body_span =
++      CharRange::from_span(whole, tcx.sess.source_map()).unwrap();
++    let file_path = span_file_path(whole, tcx.sess.source_map());
+ 
+     let current_loc = if current {
+       loc_override
+@@ -314,6 +354,7 @@ impl<'tcx> VisEvaluator<'tcx> {
+     interp_ok(MFrame {
+       name,
+       body_span,
++      file_path,
+       locals,
+       location: current_loc,
+     })
+diff --git a/crates/aquascope/src/test_utils.rs b/crates/aquascope/src/test_utils.rs
+index 02eaad5..2d1ab99 100644
+--- a/crates/aquascope/src/test_utils.rs
++++ b/crates/aquascope/src/test_utils.rs
+@@ -387,7 +387,7 @@ pub fn test_interpreter_in_file(
+     );
+     compile(input, &args, true, |tcx| {
+       let name = path.file_name().unwrap().to_string_lossy().to_string();
+-      let result = interpreter::interpret(tcx).unwrap();
++      let result = interpreter::interpret(tcx, &Default::default()).unwrap();
+       run_insta(name, result);
+     });
+     Ok(())
+diff --git a/crates/aquascope_front/src/lib.rs b/crates/aquascope_front/src/lib.rs
+index ed10acc..5526ac9 100644
+--- a/crates/aquascope_front/src/lib.rs
++++ b/crates/aquascope_front/src/lib.rs
+@@ -13,6 +13,7 @@ extern crate rustc_macros;
+ extern crate rustc_middle;
+ extern crate rustc_mir_dataflow;
+ extern crate rustc_serialize;
++extern crate rustc_session;
+ extern crate rustc_span;
+ 
+ pub mod plugin;
+diff --git a/crates/aquascope_front/src/plugin.rs b/crates/aquascope_front/src/plugin.rs
+index 9d89d10..261b461 100644
+--- a/crates/aquascope_front/src/plugin.rs
++++ b/crates/aquascope_front/src/plugin.rs
+@@ -51,7 +51,28 @@ enum AquascopeCommand {
+     show_flows: bool,
+   },
+ 
+-  Interpreter,
++  Interpreter {
++    /// Lift Miri's isolation, so the program can read and write files and
++    /// see the environment, as `-Zmiri-disable-isolation` does.
++    #[clap(long)]
++    allow_io: bool,
++
++    /// Build every crate as `cargo miri` does: with Miri's standard library
++    /// (`MIRI_SYSROOT`) and `-Zalways-encode-mir`, for the host target only,
++    /// so that functions of other crates can be run.
++    #[clap(long)]
++    miri_build: bool,
++
++    /// The root file of a binary of the package. The library crate is
++    /// compiled with this file added as a module, and with `extern crate self`
++    /// under the library's name, and the run starts at that module's `main`.
++    #[clap(long, value_name = "FILE")]
++    main: Option<PathBuf>,
++
++    /// The program's arguments, after `--`.
++    #[clap(last = true)]
++    program_args: Vec<String>,
++  },
+ 
+   Preload,
+   RustcVersion,
+@@ -86,7 +107,14 @@ impl RustcPlugin for AquascopePlugin {
+     &self,
+     target_dir: &Utf8Path,
+   ) -> RustcPluginArgs<AquascopePluginArgs> {
+-    let args = AquascopePluginArgs::parse_from(env::args().skip(1));
++    let mut args = AquascopePluginArgs::parse_from(env::args().skip(1));
++    // The driver runs in the workspace root, so it needs an absolute path.
++    if let AquascopeCommand::Interpreter {
++      main: Some(main), ..
++    } = &mut args.command
++    {
++      *main = main.canonicalize().expect("--main file not found");
++    }
+ 
+     log::debug!("Provided PluginArgs {args:?}");
+ 
+@@ -121,6 +149,23 @@ impl RustcPlugin for AquascopePlugin {
+     }
+   }
+ 
++  fn modify_cargo(&self, cargo: &mut Command, args: &Self::Args) {
++    if let AquascopeCommand::Interpreter {
++      miri_build: true, ..
++    } = &args.command
++    {
++      let sysroot =
++        env::var("MIRI_SYSROOT").expect("--miri-build needs MIRI_SYSROOT");
++      // With an explicit target, cargo gives build scripts and proc macros,
++      // which run on the host, none of these flags.
++      cargo.args(["--target", rustc_session::config::host_tuple()]);
++      cargo.env(
++        "CARGO_ENCODED_RUSTFLAGS",
++        ["--sysroot", &sysroot, "-Zalways-encode-mir"].join("\x1f"),
++      );
++    }
++  }
++
+   fn run(
+     self,
+     compiler_args: Vec<String>,
+@@ -146,12 +191,30 @@ impl RustcPlugin for AquascopePlugin {
+         let _ = run_with_callbacks(&compiler_args, &mut callbacks);
+         postprocess(callbacks.output)
+       }
+-      Interpreter => {
++      Interpreter {
++        allow_io,
++        main,
++        program_args,
++        ..
++      } => {
++        let fold = main.map(|main| {
++          aquascope::interpreter::OneCrate::new(&compiler_args, &main)
++        });
++        let compiler_args = match &fold {
++          Some(fold) => fold.compiler_args(&compiler_args),
++          None => compiler_args,
++        };
+         let mut callbacks = aquascope::interpreter::InterpretCallbacks::new(
+           plugin_args.should_fail,
++          aquascope::interpreter::InterpretOptions {
++            allow_io,
++            program_args,
++            fold,
++          },
+         );
+         let _ = run_with_callbacks(&compiler_args, &mut callbacks);
+-        postprocess(callbacks.result.unwrap().map_err(|_| {
++        postprocess(callbacks.result.unwrap().map_err(|e| {
++          eprintln!("aquascope interpreter: {e:#}");
+           AquascopeError::BuildError {
+             range: None,
+             file_path: None,
