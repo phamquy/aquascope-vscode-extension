@@ -1,7 +1,7 @@
 ---
 id: T-049
 title: "Explain why a crate cannot be analysed"
-status: review
+status: done
 priority: medium
 feature: "008-whole-crate-analysis"
 created: 2026-11-09
