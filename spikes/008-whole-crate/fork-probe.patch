@@ -1,0 +1,82 @@
+diff --git a/crates/aquascope/src/analysis/mod.rs b/crates/aquascope/src/analysis/mod.rs
+index 17a09ba..d950552 100644
+--- a/crates/aquascope/src/analysis/mod.rs
++++ b/crates/aquascope/src/analysis/mod.rs
+@@ -25,7 +25,7 @@ use rustc_borrowck::consumers::BodyWithBorrowckFacts;
+ use rustc_data_structures::fx::FxHashMap;
+ use rustc_hir::BodyId;
+ use rustc_middle::ty::TyCtxt;
+-use rustc_span::{self, Span};
++use rustc_span::{self, FileName, RemapPathScopeComponents, Span};
+ use rustc_utils::{
+   BodyExt, SpanExt,
+   mir::borrowck_facts,
+@@ -300,6 +300,7 @@ impl From<anyhow::Error> for AquascopeError {
+ #[ts(export)]
+ pub struct AnalysisOutput {
+   pub body_range: CharRange,
++  pub file_path: String,
+   pub boundaries: Vec<PermissionsBoundary>,
+   pub steps: Vec<PermissionsLineDisplay>,
+   pub loan_points: LoanPoints,
+@@ -356,9 +357,20 @@ impl<'tcx> AquascopeAnalysis<'tcx> {
+     let (move_points, move_regions) = analysis_ctxt.construct_move_info();
+ 
+     let body_range = analysis_ctxt.span_to_range(body.span);
++    let file_path = {
++      let source_map = tcx.sess.source_map();
++      match &source_map.lookup_source_file(body.span.lo()).name {
++        FileName::Real(real) => real
++          .path(RemapPathScopeComponents::DOCUMENTATION)
++          .to_string_lossy()
++          .into_owned(),
++        other => format!("{other:?}"),
++      }
++    };
+ 
+     Ok(AnalysisOutput {
+       body_range,
++      file_path,
+       boundaries,
+       steps,
+       loan_points,
+diff --git a/crates/aquascope_front/src/plugin.rs b/crates/aquascope_front/src/plugin.rs
+index ecb0346..2336d5a 100644
+--- a/crates/aquascope_front/src/plugin.rs
++++ b/crates/aquascope_front/src/plugin.rs
+@@ -1,6 +1,7 @@
+ use std::{
+   borrow::Cow,
+   env,
++  path::PathBuf,
+   process::{Command, exit},
+   time::Instant,
+ };
+@@ -31,6 +32,11 @@ pub struct AquascopePluginArgs {
+   #[clap(long)]
+   should_fail: bool,
+ 
++  /// Analyse only the crate containing this file, not every crate of the
++  /// workspace.
++  #[clap(long)]
++  crate_of: Option<PathBuf>,
++
+   #[clap(subcommand)]
+   command: AquascopeCommand,
+ }
+@@ -96,10 +102,11 @@ impl RustcPlugin for AquascopePlugin {
+       _ => {}
+     };
+ 
+-    RustcPluginArgs {
+-      filter: CrateFilter::OnlyWorkspace,
+-      args,
+-    }
++    let filter = match &args.crate_of {
++      Some(file) => CrateFilter::CrateContainingFile(file.clone()),
++      None => CrateFilter::OnlyWorkspace,
++    };
++    RustcPluginArgs { filter, args }
+   }
+ 
+   fn run(

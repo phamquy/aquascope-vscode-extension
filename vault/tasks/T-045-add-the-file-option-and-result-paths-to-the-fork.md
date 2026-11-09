@@ -13,7 +13,7 @@ Spec: [[specs/features/008-whole-crate-analysis/spec.md]]
 
 ## Done when
 
-- [ ] The fork has the file option and the result path field on a branch from `v0.4.0-vscode.1`, each with a test in Aquascope's suite
+- [ ] The fork has the file option and the path field, on results and on build errors (D3, revised), on a branch from `v0.4.0-vscode.1`, each with a test in Aquascope's suite
 - [ ] `cargo fmt --check`, `cargo clippy -p aquascope -- -D warnings` and `cargo test -p aquascope` pass
 - [ ] Tag `v0.4.0-vscode.2` is pushed, and both changes are offered upstream
 - [ ] `pin.env` names the tag, the development bundle is rebuilt and the bindings are regenerated

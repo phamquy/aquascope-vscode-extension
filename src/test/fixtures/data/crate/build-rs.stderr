@@ -1,0 +1,4 @@
+
+thread 'main' (22935620) panicked at ~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustc_plugin-0.15.2-nightly-2026-05-01/src/cli.rs:194:10:
+internal error: entered unreachable code: unexpected cargo crate type: custom-build
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
