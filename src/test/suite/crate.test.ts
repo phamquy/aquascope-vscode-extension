@@ -1,6 +1,6 @@
 // Feature 008 end to end: a function analysed with the rest of its crate, against the development bundle,
-// seen through the command's result, the panel's report and the output channel (T-048: AC1 to AC3, AC9;
-// T-049: AC5, AC6, AC10 and R8).
+// seen through the command's result, the panel's report and the output channel, one test per automated
+// criterion: AC1 to AC6 and AC8 to AC10, and R8. AC7 is feature 003's suites, unchanged.
 import * as assert from 'assert';
 import { cpSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import * as os from 'os';
@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import type { AnalysisOutput, AnalyzeResult } from '../../analysis/types';
 import type { AquascopeApi } from '../../extension';
 import type { PanelReport } from '../../visualization/panel';
-import { fixtureProject, requireToolchain } from './harness';
+import { fixtureProject, folderSnapshot, requireToolchain } from './harness';
 
 const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
 const COMMAND = 'aquascope.analyzeAtCursor';
@@ -48,9 +48,11 @@ function ok(result: AnalyzeResult): AnalysisOutput {
 suite('feature 008 acceptance criteria, end to end', function () {
   this.timeout(120_000); // the first run on a project builds its dependencies
   let api: AquascopeApi;
+  let projectsBefore: Record<string, string>;
 
   suiteSetup(async function () {
     const bundle = requireToolchain(this);
+    projectsBefore = folderSnapshot(fixtureProject());
     await vscode.workspace.getConfiguration('aquascope').update('toolchainPath', bundle, vscode.ConfigurationTarget.Global);
     const ext = vscode.extensions.getExtension<AquascopeApi>(EXTENSION_ID);
     assert.ok(ext);
@@ -180,5 +182,21 @@ suite('feature 008 acceptance criteria, end to end', function () {
       await vscode.window.showTextDocument(vscode.Uri.file(lib), { viewColumn: vscode.ViewColumn.One });
       await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
     }
+  });
+
+  test('AC8: a second run on a crate takes under 10 seconds', async () => {
+    const config = fixtureProject('minigrep', 'src', 'config.rs');
+    ok(await analyzeAt(config, lineOf(config, 'let mut text'), 8));
+    const started = Date.now();
+    ok(await analyzeAt(config, lineOf(config, 'let mut args'), 8));
+    const ms = Date.now() - started;
+    assert.ok(ms < 10_000, `the second run took ${ms} ms`);
+    console.log(`      second run: ${ms} ms`);
+  });
+
+  test('AC4: after every run above, the fixture projects are unchanged, with no Cargo.lock or target/ written', () => {
+    const after = folderSnapshot(fixtureProject());
+    assert.ok(!Object.keys(after).some((f) => f.split(path.sep).includes('target')), 'no build folder in the projects');
+    assert.deepStrictEqual(after, projectsBefore);
   });
 });
