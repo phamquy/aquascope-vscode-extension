@@ -2,7 +2,7 @@
   "name": "aquascope-vscode-extension",
   "displayName": "Aquascope",
   "description": "VS Code extension for Aquascope.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "jackpham",
   "license": "MIT",
   "repository": {
