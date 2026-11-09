@@ -1,7 +1,7 @@
 ---
 id: T-043
 title: "Keep the build machine's home path out of the package"
-status: review
+status: done
 priority: medium
 feature: "005-package-per-platform-vsix"
 created: 2026-11-09
