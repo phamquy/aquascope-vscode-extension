@@ -142,6 +142,14 @@ suite('feature 003 acceptance criteria, end to end', function () {
     ok(await analyzeAt(file, bodyLine(file, 'main'), 4), 'main beside `use serde::Serialize;`');
   });
 
+  test('issue #31: a function that returns early and then branches again is analysed, with boundaries but no steps', async () => {
+    // Aquascope's stepper cannot segment it; the pinned fork keeps the boundaries (ADR 0004).
+    const output = ok(await analyzeAt('n3_early_return.rs', bodyLine('n3_early_return.rs', 'parse'), 8), 'Config::parse');
+    assert.strictEqual(output.body_range.start.line, bodyLine('n3_early_return.rs', 'parse') - 1, 'the body of parse');
+    assert.ok(output.boundaries.length > 0, 'expected boundaries');
+    assert.strictEqual(output.steps.length, 0);
+  });
+
   test('AC9: the runs left the workspace folder unchanged', () => {
     assert.deepStrictEqual(snapshot(fixtureWorkspace()), workspaceBefore);
   });
