@@ -1,0 +1,7 @@
+# The crates.io dependency comes from vendor/, so the tests need neither the network nor the machine's cargo cache
+# (feature 008, T-048). Made with `cargo vendor --offline vendor`.
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"

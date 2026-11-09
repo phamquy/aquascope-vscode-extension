@@ -1,0 +1,18 @@
+error[E0432]: unresolved import `crate::helpers`
+ --> src/cli.rs:1:12
+  |
+1 | use crate::helpers::trim;
+  |            ^^^^^^^ unresolved import
+  |
+  = note: -Ztrack-diagnostics: created at /rustc-dev/f53b654a8882fd5fc036c4ca7a4ff41ce32497a6/compiler/rustc_resolve/src/imports.rs:917:24
+help: a similar path exists
+  |
+1 | use crate::__aquascope_main::helpers::trim;
+  |            ++++++++++++++++++
+
+For more information about this error, try `rustc --explain E0432`.
+
+thread 'main' (23986424) panicked at crates/aquascope_front/src/plugin.rs:216:38:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: could not compile `bin-crate-paths` (lib) due to 1 previous error

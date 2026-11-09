@@ -33,6 +33,14 @@ Recorded 2026-11-09 when the draft was approved. Each one takes the recommendati
 - D4 (was Q4): The panel draws the steps whose current frame is in the active file, each with the whole stack and heap at that moment. The fork writes each frame's file path, as feature 008's D3 did for permissions, and the change is offered upstream.
 - D5 (was Q5): The probe times the first and later runs on minigrep and on a program with a crates.io dependency, and counts their steps, both in the whole run and in each file. The numbers set the progress messages and may revise feature 007's limit of 100 steps.
 - D6 (was Q6): When a crate run fails, the message offers to run the file alone, as feature 008's D8 does.
+- D7 (added by T-051): The fork reads values that Aquascope's interpreter cannot read today. It crashes on them, in feature 007's single-file run as well: `let s = "hi";` alone overflows the compiler's stack (upstream issues #75, #118 and #119). A `&str` that points to a string literal or into an array is read as its characters, and a string literal's memory is drawn with the heap, the only place the renderer has for memory outside the stack. A trait object such as `Box<dyn Error>` is drawn by its type alone. Without this, minigrep crashes whenever `Config::build` returns its error message or `run` returns its error, so AC3 could not pass.
+
+Revised 2026-11-09 from T-051's probe (Appendix B).
+
+- D1, confirmed: The one-crate build selects any binary of the package by its root file, including one under `src/bin/`, whose steps carry the path `src/bin/whisper.rs`.
+- D3, confirmed: With isolation lifted, minigrep reads `poem.txt`. With isolation kept, the run stops with "`open` not available when isolation is enabled". The program's working folder is the workspace root, for a member of a workspace too: the workspace fixture's binary member read `names.txt` from the workspace root.
+- D4, confirmed: With a path on each frame and the plan's one-crate build, minigrep's run has 25 steps in three files, and every step in `config.rs` has `main`'s frame below `Config::build`'s. Run as its binary alone, the same program has 4 steps, all in `main.rs`, and each call into the library passes in one step, as the plan expected. In the one-crate build the binary's `main` is named `__aquascope_main::main`, so the extension renames it.
+- D5, settled: Every run of minigrep took about 9 seconds, the first no slower than later ones, because the time goes into running the program rather than building it. The binary alone took 4.1 seconds, and a run that stopped at argument parsing took 0.4. A binary using `itoa` took 0.5 seconds, first run included. minigrep's 25 steps, 211 KB of output, are far below feature 007's limit of 100, which stands, and feature 003's 60-second timeout covers the runs.
 
 ## User stories
 
@@ -64,6 +72,7 @@ Recorded 2026-11-09 when the draft was approved. Each one takes the recommendati
 - [ ] AC6: Feature 007's tests pass unchanged for files that belong to no package.
 - [ ] AC7: The arguments given for a project are offered again on the next run, as D2 settles.
 - [ ] AC8: A run from a file with no step in it says so.
+- [ ] AC9: A program holding a reference to a string literal, such as `let s = "hi";`, is drawn, both from a file of a package and from a file alone (feature 007), with the literal's text in the heap (D7).
 
 ## Out of scope
 
@@ -90,3 +99,41 @@ None. Q1 to Q6 were settled when the draft was approved and are recorded as D1 t
 | A trace's frames carry their location as a `CharRange`, whose file is only a `FilenameIndex`. | `src/analysis/bindings/MFrame.ts`, `CharRange.ts` |
 | Feature 007's probe: a panic, `process::exit` and a read from standard input end the run with a bare build error and exit code 0; steps multiply with calls of the program's own functions; the panel draws at most 100 steps. | Spec 007, Appendix A and D6 |
 | The Book's minigrep reads `env::args()` into `Config::build`, calls `process::exit(1)` when it fails, and reads the file with `fs::read_to_string`. | The Rust Programming Language, chapter 12 |
+
+## Appendix B: probe results, 2026-11-09
+
+Run with `spikes/009-whole-crate-interpreter/probe.sh` (T-051), three times with the final prototype, on darwin-arm64; the times are the last run's, and the others were within 10%. The prototype is the fork's `v0.4.0-vscode.2` with `spikes/009-whole-crate-interpreter/fork-probe.patch`, which adds the plan's five changes as options of `cargo aquascope interpreter` (`--allow-io`, `--miri-build`, `--main <file>`, `-- <args>`, `file_path` on frames, the error on stderr) and D7's reading of values. "One crate" below is `--crate-of src/lib.rs interpreter --miri-build --allow-io --main src/main.rs`.
+
+| Run | Exit | Time | Output |
+| --- | --- | --- | --- |
+| minigrep, binary alone, usual build settings, `frog poem.txt` | 101 | 0.3 s | none; panic: `config::Config::build` "does not have a optimized_mir" |
+| minigrep, binary alone, Miri's build settings (change 2) | 0 | 4.1 s | 4 steps, all in `src/main.rs`; success |
+| minigrep, one crate, first and second run | 0 | 9.2 s, 8.9 s | 25 steps: `src/main.rs` 6, `src/config.rs` 7, `src/lib.rs` 12; success; stack up to 3 deep; 211 KB |
+| minigrep, one crate, `"a frog" poem.txt` | 0 | 11.7 s | the same 25 steps, the quoted argument read as one |
+| minigrep, one crate, usual build settings | 0 | 9.1 s | the same 25 steps: with no dependency, everything is in the one crate |
+| minigrep, one crate, after an edit to `config.rs` | 0 | 7.9 s | the trace changed (210 KB) |
+| minigrep, one crate, no arguments | 0 | 0.4 s | `{"Err": BuildError}`; stderr "the evaluated program completed with exit code 1" |
+| minigrep, one crate, `frog missing.txt` | 0 | 2.0 s | the same as no arguments |
+| minigrep, one crate, isolation kept | 0 | 0.4 s | `{"Err": BuildError}`; stderr "`open` not available when isolation is enabled" |
+| binary with a module, no library, usual and Miri's settings | 0 | 0.3 s | 13 steps: `src/main.rs` 7, `src/shapes.rs` 6 |
+| binary using vendored `itoa`, usual settings | 101 | 0.3 s | none; E0460 "found possibly newer version of crate `core` which `itoa` depends on" |
+| binary using vendored `itoa`, Miri's settings, first and second | 0 | 0.5 s, 0.5 s | 20 steps in `src/main.rs`; `itoa`'s own steps are not drawn |
+| binary whose modules use `crate::`, one crate | 101 | 0.2 s | none; E0432 unresolved import `crate::helpers` |
+| the same, binary alone | 0 | 0.3 s | 12 steps: `src/main.rs` 5, `src/cli.rs` 5, `src/helpers.rs` 2; `cargo check` of the package passes |
+| workspace: binary member using a library member, usual settings | 101 | 0.3 s | none; panic: `greeter::greet` has no optimized MIR |
+| the same, Miri's settings | 0 | 0.8 s | 3 steps in `app/src/main.rs`, reading `names.txt` at the workspace root; `greet`'s steps are not drawn |
+| two binaries, one crate with `--main src/bin/whisper.rs` | 0 | 0.4 s | 7 steps: `src/bin/whisper.rs` 5, `src/lib.rs` 2 |
+| two binaries, one crate with `--main src/main.rs` | 0 | 0.3 s | 6 steps: `src/main.rs` 4, `src/lib.rs` 2 |
+| `let s = "hi";`, the pinned fork (feature 007 today) | 101 | 0.2 s | none; "stack overflow, aborting" |
+| the same, the prototype | 0 | 0.2 s | 4 steps; `s` points into heap location 0, which holds the characters `h`, `i` |
+
+| Finding | Detail |
+| --- | --- |
+| The one-crate build compiles the library as an executable | Miri stops with "interpreting a non-executable crate" (`miri/src/helpers.rs:146`) on a library crate. The prototype changes the library's `--crate-type` to `bin`, adds `-Zcrate-attr=no_main`, and starts at the function `main` of the module `__aquascope_main` |
+| Miri's build settings apply to the target only | The prototype adds `--target <host>` with `CARGO_ENCODED_RUSTFLAGS` of `--sysroot <MIRI_SYSROOT> -Zalways-encode-mir`, so build scripts and proc macros keep the ordinary standard library, as `cargo miri` does |
+| The program's name | The program's first argument is the crate's name: `minigrep` here; in a one-crate build, the library's name |
+| Frames | Names such as `config::Config::build`, `run` and `search`; `file_path` relative to the workspace root; each frame's positions are in its own file |
+| Why values crashed the interpreter | A `&str` not reached through a `String` is read by reading its pointer, which reads the `str`, which reads the pointer again until the stack overflows; a trait object reaches `todo!()`; and a pointer into an allocation with no sized layout fails an assertion (`miri_utils.rs:146`). The prototype's fix is about 40 lines in `mvalue.rs` |
+| Errors | With change 5, stderr names the reason a run ended without a trace: the program's exit code, or the operation that isolation refused |
+
+Captures for the unit tests are in `src/test/fixtures/data/stack-heap-crate/`: the metadata of minigrep, the two-binary package and the workspace; minigrep's one-crate trace and its run with no arguments; the workspace's trace; and the compiler's errors for the one-crate build of the `crate::` fixture.
