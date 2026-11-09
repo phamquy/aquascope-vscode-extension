@@ -1,7 +1,7 @@
 ---
 id: 008-whole-crate-analysis
 title: Analyse a function with the rest of its crate
-status: approved
+status: implemented
 ---
 
 # Analyse a function with the rest of its crate
@@ -67,16 +67,16 @@ Revised 2026-11-09 from T-044's probe (Appendix B).
 
 ## Acceptance criteria
 
-- [ ] AC1: In a fixture crate with `main.rs`, `lib.rs` and a module in its own file, a function in the module that uses items from `lib.rs` is drawn in the panel, with its markers on the right lines of the module's file.
-- [ ] AC2: In a fixture crate with a crates.io dependency already in the cargo cache, a function using it is analysed with the network off.
-- [ ] AC3: In a fixture workspace, a function in one member that uses another member is analysed.
-- [ ] AC4: After runs on every fixture crate, the project folders are unchanged, including `Cargo.lock` and `target/`, as feature 003 AC9 checks for single files.
-- [ ] AC5: With a dependency missing from the cache, the message names the dependency and says to run `cargo fetch`, offers to analyse the file alone, and nothing is downloaded.
-- [ ] AC6: With no linker on `PATH` and a dependency that has a proc macro, the message says the crate needs a linker.
-- [ ] AC7: Feature 003's single-file tests pass unchanged for files that belong to no package.
-- [ ] AC8: The second run on a fixture crate takes under 10 seconds, the bound of feature 003 AC1, unless D4's measurements revise it.
-- [ ] AC9: An unsaved edit in a module file is analysed: the result reflects the edit, and the file on disk is unchanged.
-- [ ] AC10: A function in a fixture's `tests/` file is analysed, and its `build.rs` gets the message that this version cannot analyse it.
+- [x] AC1: In a fixture crate with `main.rs`, `lib.rs` and a module in its own file, a function in the module that uses items from `lib.rs` is drawn in the panel, with its markers on the right lines of the module's file.
+- [x] AC2: In a fixture crate with a crates.io dependency already in the cargo cache, a function using it is analysed with the network off.
+- [x] AC3: In a fixture workspace, a function in one member that uses another member is analysed.
+- [x] AC4: After runs on every fixture crate, the project folders are unchanged, including `Cargo.lock` and `target/`, as feature 003 AC9 checks for single files.
+- [x] AC5: With a dependency missing from the cache, the message names the dependency and says to run `cargo fetch`, offers to analyse the file alone, and nothing is downloaded.
+- [x] AC6: With no linker on `PATH` and a dependency that has a proc macro, the message says the crate needs a linker.
+- [x] AC7: Feature 003's single-file tests pass unchanged for files that belong to no package.
+- [x] AC8: The second run on a fixture crate takes under 10 seconds, the bound of feature 003 AC1, unless D4's measurements revise it.
+- [x] AC9: An unsaved edit in a module file is analysed: the result reflects the edit, and the file on disk is unchanged.
+- [x] AC10: A function in a fixture's `tests/` file is analysed, and its `build.rs` gets the message that this version cannot analyse it.
 
 ## Out of scope
 
