@@ -109,3 +109,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 005 | Package per-platform VSIX with toolchain      | implemented |
 | 006 | Analyze from a button in the editor title bar | implemented |
 | 007 | Show the stack and heap at each step          | implemented |
+| 008 | Analyse a function with the rest of its crate | approved    |
