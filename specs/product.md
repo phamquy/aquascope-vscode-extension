@@ -110,3 +110,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 006 | Analyze from a button in the editor title bar | implemented |
 | 007 | Show the stack and heap at each step          | implemented |
 | 008 | Analyse a function with the rest of its crate | implemented |
+| 009 | Show the stack and heap of a whole crate      | approved    |
