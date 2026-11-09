@@ -20,8 +20,13 @@ export type Selection =
  * Selects the body at `cursor` from the tool's stdout. `source` is the exact text that was analysed,
  * used to convert Aquascope's character columns to UTF-16. Result order is not stable, so the choice
  * depends only on the ranges.
+ *
+ * With `file`, the output covers a crate of several files (feature 008, R3): only the results whose
+ * `file_path` is `file`, the path relative to the workspace root, are considered, before any column is
+ * converted with `source`. Results without a path, from a single-file run or an older Aquascope, and
+ * analysis errors, which name no file, are kept.
  */
-export function selectAtCursor(stdout: string, source: string, cursor: Cursor): Selection {
+export function selectAtCursor(stdout: string, source: string, cursor: Cursor, file?: string): Selection {
   let entries: unknown;
   try {
     entries = JSON.parse(stdout);
@@ -31,10 +36,17 @@ export function selectAtCursor(stdout: string, source: string, cursor: Cursor): 
   if (!Array.isArray(entries) || !entries.every(isEntry)) {
     return { kind: 'invalid', reason: 'the output is not a list of analysis results' };
   }
-  convertColumnsToUtf16(entries, source);
+  if (file !== undefined) {
+    entries = entries.filter((e) => {
+      const named = fileOf(e);
+      return named === undefined || named === file;
+    });
+  }
+  const inFile = entries as AquascopeEntry[];
+  convertColumnsToUtf16(inFile, source);
 
   const at: CharPos = { line: cursor.line, column: cursor.character };
-  const containing = entries.flatMap((e) => ('Ok' in e && contains(e.Ok.body_range, at) ? [e.Ok] : []));
+  const containing = inFile.flatMap((e) => ('Ok' in e && contains(e.Ok.body_range, at) ? [e.Ok] : []));
   if (containing.length > 0) {
     // Bodies nest or are disjoint, so the innermost one starts last; ties go to the one ending first.
     containing.sort((a, b) => compare(b.body_range.start, a.body_range.start) || compare(a.body_range.end, b.body_range.end));
@@ -42,12 +54,18 @@ export function selectAtCursor(stdout: string, source: string, cursor: Cursor): 
   }
   const buildErrors: (CharRange | null)[] = [];
   const analysisErrors: string[] = [];
-  for (const e of entries) {
+  for (const e of inFile) {
     if (!('Err' in e)) continue;
     if (e.Err.type === 'BuildError') buildErrors.push(e.Err.range);
     else analysisErrors.push(e.Err.msg);
   }
   return { kind: 'none', buildErrors, analysisErrors };
+}
+
+/** The file a result names, if it names one (feature 008, D3). */
+function fileOf(e: AquascopeEntry): string | undefined {
+  if ('Ok' in e) return e.Ok.file_path ?? undefined;
+  return e.Err.type === 'BuildError' ? (e.Err.file_path ?? undefined) : undefined;
 }
 
 function isEntry(e: unknown): e is AquascopeEntry {

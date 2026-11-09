@@ -92,6 +92,21 @@ posixOnly('runner (R8, R11)', () => {
     assert.match(req.lines.join('\n'), /cancel requested; killing process group \d+/);
   });
 
+  test('with no timeout, runs to the end, and can still be cancelled (feature 008, D6)', async () => {
+    const finished = await run(request('sleep 0.4; echo done', { timeoutMs: undefined }));
+    assert.deepStrictEqual([finished.kind, finished.exitCode, finished.stdout.trim()], ['exited', 0, 'done']);
+
+    const source = new vscode.CancellationTokenSource();
+    const req = request(PARENT_WITH_GRANDCHILD, { timeoutMs: undefined, token: source.token });
+    const done = run(req);
+    await new Promise((r) => setTimeout(r, 200));
+    source.cancel();
+    const outcome = await done;
+    source.dispose();
+    assert.strictEqual(outcome.kind, 'cancelled');
+    assert.ok(await gone(Number(outcome.stdout.trim())), 'the grandchild is stopped');
+  });
+
   test('does not start when already cancelled', async () => {
     const source = new vscode.CancellationTokenSource();
     source.cancel();

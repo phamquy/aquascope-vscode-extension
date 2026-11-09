@@ -38,11 +38,14 @@ export function recentOutput(): string {
   return recent.join('\n');
 }
 
-/** Runs `task` under a cancellable progress notification (R8). */
-export function withProgress<T>(title: string, task: (token: vscode.CancellationToken) => Promise<T>): Thenable<T> {
+/** Reports a step of a run in its progress notification, below the title. */
+export type ReportProgress = (message: string) => void;
+
+/** Runs `task` under a cancellable progress notification (R8); `report` changes the line below the title. */
+export function withProgress<T>(title: string, task: (token: vscode.CancellationToken, report: ReportProgress) => Promise<T>): Thenable<T> {
   return vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title, cancellable: true },
-    (_progress, token) => task(token),
+    (progress, token) => task(token, (message) => progress.report({ message })),
   );
 }
 
@@ -52,7 +55,8 @@ export interface RunRequest {
   args: string[];
   cwd: string;
   environment: RunEnvironment;
-  timeoutMs: number;
+  /** Unset for no time limit, as when a crate's dependencies are built the first time (feature 008, D6). */
+  timeoutMs?: number;
   token?: vscode.CancellationToken;
   /** Receives the log lines; normally the output channel's `appendLine`. */
   log: (line: string) => void;
@@ -101,10 +105,10 @@ export function run(req: RunRequest): Promise<RunOutcome> {
     const stop = (kind: 'timeout' | 'cancelled'): void => {
       if (settled || ending) return;
       ending = kind;
-      req.log(`  ${kind === 'timeout' ? `timeout of ${req.timeoutMs / 1000} s reached` : 'cancel requested'}; killing process group ${child.pid}`);
+      req.log(`  ${kind === 'timeout' ? `timeout of ${(req.timeoutMs ?? 0) / 1000} s reached` : 'cancel requested'}; killing process group ${child.pid}`);
       killGroup(child);
     };
-    const timer = setTimeout(() => stop('timeout'), req.timeoutMs);
+    const timer = req.timeoutMs === undefined ? undefined : setTimeout(() => stop('timeout'), req.timeoutMs);
     const cancel = req.token?.onCancellationRequested(() => stop('cancelled'));
 
     const finish = (kind: RunOutcome['kind'], exitCode: number | null, error?: NodeJS.ErrnoException): void => {

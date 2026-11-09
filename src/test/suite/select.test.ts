@@ -1,7 +1,8 @@
 import * as assert from 'assert';
+import { readFileSync } from 'fs';
 import { selectAtCursor, Selection } from '../../analysis/select';
 import type { AquascopeEntry, CharPos } from '../../analysis/types';
-import { fixtureData, fixtureText } from './harness';
+import { fixtureData, fixtureProject, fixtureText } from './harness';
 
 /** The selection for a cursor, checked to be the same when the tool lists the bodies in reverse. */
 function select(name: string, line: number, character: number): Selection {
@@ -70,5 +71,36 @@ suite('selecting the body at the cursor (R7)', () => {
     for (const bad of ['', 'warning: x', '{}', '[1]', '[{"Ok":{}}]']) {
       assert.strictEqual(selectAtCursor(bad, '', { line: 0, character: 0 }).kind, 'invalid', bad);
     }
+  });
+});
+
+suite('selecting the body at the cursor in a crate of several files (feature 008, R3)', () => {
+  // T-044's capture of `--crate-of src/config.rs` on the split minigrep: bodies of lib.rs and config.rs.
+  const stdout = fixtureData('crate/minigrep-config.json');
+  const config = readFileSync(fixtureProject('minigrep', 'src', 'config.rs'), 'utf8');
+  const lib = readFileSync(fixtureProject('minigrep', 'src', 'lib.rs'), 'utf8');
+
+  test("keeps the active file's results, so a body of another file on the same lines is not chosen", () => {
+    const cursor = { line: 13, character: 8 }; // inside parse in config.rs; lines 12 to 14 of lib.rs are search
+    assert.deepStrictEqual(bodyStart(selectAtCursor(stdout, config, cursor, 'src/config.rs')), { line: 10, column: 4 });
+    const unfiltered = selectAtCursor(stdout, config, cursor);
+    assert.ok(unfiltered.kind === 'selected' && unfiltered.output.file_path === 'src/lib.rs', "without the file, lib.rs's search wins");
+    assert.deepStrictEqual(bodyStart(selectAtCursor(stdout, lib, { line: 13, character: 4 }, 'src/lib.rs')), { line: 12, column: 0 });
+  });
+
+  test('a file with no result is no function; results without a path still count', () => {
+    assert.strictEqual(selectAtCursor(stdout, config, { line: 13, character: 8 }, 'src/main.rs').kind, 'none');
+    const old = fixtureData('05_method_mut_borrow.json'); // captured before results named their file
+    const source = fixtureText('05_method_mut_borrow.rs');
+    assert.deepStrictEqual(selectAtCursor(old, source, { line: 18, character: 4 }, 'src/lib.rs'), selectAtCursor(old, source, { line: 18, character: 4 }));
+  });
+
+  test("keeps only the active file's build errors", () => {
+    const range = { start: { line: 1, column: 0 }, end: { line: 3, column: 1 }, filename: { private_use_as_methods_instead: 0 } };
+    const out = JSON.stringify([{ Err: { type: 'BuildError', range, file_path: 'src/lib.rs' } }]);
+    const at = { line: 2, character: 0 };
+    assert.deepStrictEqual(selectAtCursor(out, lib, at, 'src/config.rs'), { kind: 'none', buildErrors: [], analysisErrors: [] });
+    const inLib = selectAtCursor(out, lib, at, 'src/lib.rs');
+    assert.ok(inLib.kind === 'none' && inLib.buildErrors.length === 1);
   });
 });
