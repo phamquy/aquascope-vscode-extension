@@ -1,0 +1,7 @@
+[package]
+name = "ext-app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ext-shared = { path = "../shared" }

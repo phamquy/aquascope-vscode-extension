@@ -35,6 +35,15 @@ Recorded 2026-11-09 when the draft was approved. Each one takes the recommendati
 - D7 (was Q7): Only the library and binary targets are analysed, as a normal build compiles them. A file that is only test code, an example, a benchmark or a build script gets a message saying this version cannot analyse it.
 - D8 (was Q8): The whole-crate analysis is automatic whenever the file belongs to a package, with no setting. When the crate cannot be analysed, the message offers to analyse the file alone, as today.
 
+Revised 2026-11-09 from T-044's probe (Appendix B).
+
+- D1, confirmed: Copying Aquascope's own source, 272 files and 1.3 MB, took 113 to 248 ms, and an unchanged second copy 8 to 20 ms. The copy root is the smallest folder that holds the workspace root and any path dependency outside it; a package with such a dependency was analysed from that copy. Cargo created `Cargo.lock` in the copy on the first run, which in the project would have been a write.
+- D2, confirmed and strengthened: The single-crate run is needed, not just faster. In Aquascope's whole-workspace run, a crate that depends on another crate of the workspace gets no results. The analysis stops after each crate without writing the compiled metadata its dependents need, so minigrep's binary and the workspace's `app` member each returned an empty list. With the file option, the crates the file's crate depends on are built normally and the crate is analysed.
+- D3, revised: The fork writes the file path on build errors too. A function that fails to build is reported with a range that carries only the file number, which the extension can map to a path only through another result from the same file in the same run, and a file whose functions all fail has none.
+- D4, settled: Later runs took about 0.3 seconds on every fixture. A first run took 0.3 to 1.2 seconds with no dependencies, and 3 to 4.2 seconds for a crate using `serde` with derive, which builds 11 crates. AC8's bound of 10 seconds stands.
+- D6, confirmed: After preload, the analysis wrote no compiled crate, so it reused everything preload built. Preload checks with `--all-features`; a crate whose features exclude each other was not tried, and stays a risk in the plan.
+- D7, revised: Files under `tests/`, `examples/` and `benches/` are analysed: rustc_plugin chooses their test, example and bench targets, and each returned its function. Only a build script cannot be analysed: rustc_plugin stops with an error on a `build.rs`. Functions in a `#[cfg(test)]` module of a library or binary file are not compiled by the check, so they return no results and the user gets feature 003's no-function message; telling that case apart is left for later.
+
 ## User stories
 
 - As a learner whose project is split into modules, such as minigrep with `main.rs`, `lib.rs` and a `config` module, I want to analyse a function that uses items from the other files, so that I can see ownership in my real code and not only in copied examples.
@@ -51,10 +60,10 @@ Recorded 2026-11-09 when the draft was approved. Each one takes the recommendati
 - R4: The analysis reflects the text the user sees, including unsaved changes. It runs on a copy of the package, or of the workspace when it has path dependencies, in the extension's storage, with the unsaved editors' text written over the copied files (D1).
 - R5: A run writes nothing in the project. Build output goes to a folder in the extension's storage, kept between runs and per project, so that later runs reuse the compiled dependencies. `Cargo.lock` is neither created nor changed in the project (D1).
 - R6: A run uses the user's own cargo cache and never the network (constitution 6, D5). When a dependency is not in the cache, the message names it and says to run `cargo fetch` in the project.
-- R7: When a dependency's build script or proc macro cannot be linked because no system linker is found, the message says that the crate needs one and how to install it on the platform.
+- R7: When a dependency's build script or proc macro cannot be linked because no system linker is found, the message says that the crate needs one and how to install it on the platform. This applies both when the whole run fails, as it does for a crates.io dependency, and when only the functions that use the macro fail, as they do for a member of the workspace (Appendix B).
 - R8: When the function at the cursor cannot be analysed because of compile errors elsewhere in the crate, the message names the files and lines with errors, in the way feature 003 R10 explains compile errors.
 - R9: The first run on a crate builds its dependencies with Aquascope's `preload` command, with its own progress message and no timeout, and can be cancelled. The analysis then runs with the usual timeout (D6). Later runs on the same crate meet AC8's time bound.
-- R10: Only the library and binary targets are analysed. A file that is only test code, an example, a benchmark or a build script gets a message saying this version cannot analyse it (D7).
+- R10: Files of the library, the binaries, the integration tests, the examples and the benchmarks are analysed with their own targets. A build script gets a message saying this version cannot analyse it (D7, revised).
 
 ## Acceptance criteria
 
@@ -67,13 +76,13 @@ Recorded 2026-11-09 when the draft was approved. Each one takes the recommendati
 - [ ] AC7: Feature 003's single-file tests pass unchanged for files that belong to no package.
 - [ ] AC8: The second run on a fixture crate takes under 10 seconds, the bound of feature 003 AC1, unless D4's measurements revise it.
 - [ ] AC9: An unsaved edit in a module file is analysed: the result reflects the edit, and the file on disk is unchanged.
-- [ ] AC10: A file that is only test code gets the message that this version cannot analyse it.
+- [ ] AC10: A function in a fixture's `tests/` file is analysed, and its `build.rs` gets the message that this version cannot analyse it.
 
 ## Out of scope
 
 - Show Stack and Heap on a whole crate. Running a program with its dependencies in Miri needs them built for Miri, which is unverified; it would be a later feature.
 - Showing results from several files at once, or a function together with the functions it calls.
-- Test-only code (`#[cfg(test)]` modules, `tests/`), examples, benchmarks and build scripts, which a normal build does not compile for the library or binary (D7).
+- Build scripts, and `#[cfg(test)]` modules inside library and binary files, which the check does not compile (D7, revised).
 - Choosing cargo features or a target other than the host.
 - Projects not built with Cargo.
 - Platforms other than darwin-arm64, as for feature 005.
@@ -94,3 +103,38 @@ None. Q1 to Q8 were settled when the draft was approved and are recorded as D1 t
 | With a crates.io dependency in the cache, the analysis works offline; from an empty cache offline it fails with `no matching package named 'itoa' found`. The first online run fetched two index entries and one 164 KB archive. | Spike 002, Q5 and Appendix F |
 | A dependency with a proc macro (`serde` with derive) fails without `cc` on `PATH` with `linker 'cc' not found`; a plain dependency does not need a linker. | Spike 002, Appendix F |
 | The bundle ships no linker: spike 002 removed `rust-lld` and the other linkers from the toolchain, since a single file never links. | Spike 002, Appendix E; spec 005 R4 |
+
+## Appendix B: probe results, 2026-11-09
+
+Run with `spikes/008-whole-crate/probe.sh` (T-044), three times; times are the range over the runs, on darwin-arm64. The prototype is the fork's `v0.4.0-vscode.1` with `spikes/008-whole-crate/fork-probe.patch`, which adds `--crate-of <file>` (D2) and a `file_path` on each result (D3). It ran on copies of the fixture projects made by `copy.mjs`, a prototype of D1's copy, with spike 002's trimmed toolchain, in feature 003's run environment, offline, with the user's own cargo cache. "Wrote" counts the compiled crates a run wrote into the build folder; zero means everything was reused. The captures for the extension's tests are in `src/test/fixtures/data/crate/`.
+
+| Copy (D1) | Files | Cold | Unchanged |
+| --- | --- | --- | --- |
+| Each fixture | 2 to 6 | 1 to 5 ms | 1 to 3 ms |
+| Aquascope's source, without `target/` and `.git` | 272, 1.3 MB | 113 to 248 ms | 8 to 20 ms |
+
+| Run | Exit | Time | Wrote | Results |
+| --- | --- | --- | --- | --- |
+| minigrep, `--crate-of src/config.rs`, first | 0 | 0.3 to 1.2 s | 0 | 8 bodies in `src/lib.rs` and `src/config.rs` |
+| the same, second | 0 | 0.3 s | 0 | the same 8 |
+| minigrep, `--crate-of src/main.rs`, first, second, after `touch` | 0 | 0.3 to 0.5 s | 2, then 0 | 2 bodies in `src/main.rs` each time |
+| minigrep, whole workspace (no option) | 0 | 0.3 s | 0 | two JSON lists, of 8 and 0: the binary gets nothing |
+| workspace, `--crate-of app/src/lib.rs`, first and second | 0 | 0.3 to 0.4 s | 2, then 0 | 1 body in `app/src/lib.rs` |
+| workspace, whole workspace | 0 | 0.3 s | 0 | two JSON lists, of 2 (`core`) and 0 (`app`) |
+| path dependency outside the workspace, run from `app/` in the copy | 0 | 0.4 s | 2 | 1 body in `src/lib.rs`, relative to `app/` |
+| crates.io `itoa`, first, second | 0 | 0.4 s, 0.3 s | 1, 0 | 1 body |
+| `itoa`: preload, then the analysis | 0 | 0.2 s, 0.3 s | 3, 0 | none, then 1 body |
+| `serde` with derive, first, second | 0 | 3.0 to 4.2 s, 0.3 s | 11, 0 | 3 bodies |
+| `serde`: preload, then the analysis | 0 | 3.1 s, 0.3 to 0.4 s | 13, 0 | none, then 3 bodies |
+| targets: `src/lib.rs` with a `#[cfg(test)]` module | 0 | 0.7 to 0.8 s | 0 | 1 body; the test module's functions are absent |
+| targets: `examples/demo.rs`, `benches/speed.rs`, `tests/it.rs` | 0 | 0.3 to 0.4 s | 0 to 2 | 1 body each, in its own file |
+| targets: `build.rs` | 101 | 0.1 s | 0 | none; rustc_plugin panics at `cli.rs:194`, on an unexpected crate type |
+
+| Failure | Exit | Stdout | What the extension can read |
+| --- | --- | --- | --- |
+| A dependency in no cache, offline | 101 | empty | stderr ``error: no matching package named `aquascope-probe-missing-crate` found``; no `Cargo.lock` written |
+| `serde` with derive, no `cc` on `PATH` | 101 | empty | stderr ``error: linker `cc` not found`` |
+| A proc macro that is a member of the workspace, no `cc` on `PATH` | 0 | the functions that do not need the macro | stderr ``error: linker `cc` not found``; no dylib for the macro |
+| A compile error in `lib.rs`, cursor in `config.rs` | 0 | 7 bodies and 1 `BuildError` | the error's range carries only file number 0, which other results of the same run map to `src/lib.rs`; `cargo check --message-format=json` names the file and line |
+
+Every result's ranges, in every run, lay in one file: no result mixed file numbers. Paths are relative to the workspace root (`src/config.rs`, `app/src/lib.rs`, `tests/it.rs`). Cargo wrote `Cargo.lock` into the minigrep copy, which had none, on the first run.

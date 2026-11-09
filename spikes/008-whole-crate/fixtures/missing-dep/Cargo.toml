@@ -1,0 +1,7 @@
+[package]
+name = "missing-dep"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aquascope-probe-missing-crate = "1"
