@@ -1,7 +1,7 @@
 ---
 id: T-048
 title: "Analyse the function at the cursor in its crate"
-status: review
+status: done
 priority: medium
 feature: "008-whole-crate-analysis"
 created: 2026-11-09
@@ -30,3 +30,4 @@ Spec: [[specs/features/008-whole-crate-analysis/spec.md]]
 - The preload mark is per project: dependencies added later are built by the analysis itself, under the usual timeout.
 - Fixtures in `src/test/fixtures/projects/`: the split minigrep and the two-member workspace from T-044, and `with-dep`, whose `itoa` 1.0.18 is vendored with `cargo vendor --offline` (88 KB, with its MIT and Apache licence files) and pinned by its `Cargo.lock`, so AC2 needs neither the network nor the machine's cargo cache. The other fixtures have no `Cargo.lock`, so T-050's AC4 can check that the one cargo writes lands only in the copy.
 - Tests: `crate.test.ts` (AC1: `parse` in `config.rs`, which uses `crate::Case` and so builds only with its crate, drawn with every marker in the function, the panel showing its lines and the log the `--crate-of` run; AC2; AC3; AC9: an unsaved line shifts the result by one, the file on disk is unchanged, and after the revert the copy is restored), three selection tests from T-044's capture, and a runner test with no timeout. 164 passing.
+- Approved on 2026-11-09 before the Restricted Mode hand check was done; that check moves to T-050, which closes the feature. The user tested the split minigrep by hand: the permissions view works with its crate. Show Stack and Heap still analyses the file alone, as the spec's out-of-scope list says, and the user chose to do it with the crate in a feature 009.
