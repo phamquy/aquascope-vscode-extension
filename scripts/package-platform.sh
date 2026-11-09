@@ -6,7 +6,8 @@
 # Runs in stages, each stopping the script with a message on failure: check (platform, pin and the
 # Aquascope checkout), build (the Aquascope binaries), assemble (the bundle in build/bundle), test (the
 # extension against that bundle) and package (the VSIX, then a check of its contents). Everything is
-# built in build/, which git ignores and the package never contains; the bundle sits at aquascope/ in the
+# built in build/, which git ignores and the package never contains, except the standard library for Miri,
+# built in a temporary folder under /tmp that is removed afterwards; the bundle sits at aquascope/ in the
 # repository root only while vsce runs. Needs rustup, git, the Xcode Command Line Tools, Node and npm,
 # and the network while building. The pin is spikes/002-toolchain-bundling/pin.env; AQUASCOPE_PIN may
 # name another file, for checking the script.
@@ -58,8 +59,13 @@ check() {
 build() {
   step "build: cargo-aquascope and aquascope-driver"
   rustup toolchain install "$RUST_NIGHTLY" --profile minimal -c rust-src -c rustc-dev -c llvm-tools-preview -c miri
-  # A target folder in build/ makes rebuilds incremental.
-  CARGO_TARGET_DIR="$build/target" cargo +"$RUST_NIGHTLY" install --locked --force \
+  # A target folder in build/ makes rebuilds incremental. rustc records source paths in the binaries, so the
+  # home folder is mapped to `~` (R10). The nightly's own cargo and rustc run without rustup's proxy, because
+  # the RUSTUP_HOME it sets would be compiled into aquascope-driver as a fallback sysroot.
+  local nightly
+  nightly="$(rustup run "$RUST_NIGHTLY" rustc --print sysroot)"
+  env -u RUSTUP_HOME -u RUSTUP_TOOLCHAIN RUSTC="$nightly/bin/rustc" CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME=~" \
+    CARGO_TARGET_DIR="$build/target" "$nightly/bin/cargo" install --locked --force \
     --path "$src/crates/aquascope_front" --root "$install"
 }
 
@@ -121,11 +127,15 @@ assemble() {
   node "$root/scripts/crate-notices.mjs" "$src" "$RUST_NIGHTLY" "$host" > "$bundle/THIRD-PARTY-NOTICES"
 
   # The standard library built for Miri, which Aquascope's interpreter needs (feature 007, ADR 0003).
-  # cargo-miri builds it from the nightly's rust-src into build/miri-sysroot, which keeps it between runs;
-  # it rebuilds only when the toolchain changes. Cargo's dep-info (.d) files are not needed to run.
-  MIRI_SYSROOT="$build/miri-sysroot" cargo +"$RUST_NIGHTLY" miri setup ||
+  # cargo-miri sets its own compiler flags, so the source paths it records cannot be remapped. Instead it
+  # builds, in about 15 seconds, from a copy of the nightly's library source and with a fresh cargo home,
+  # both in a temporary folder outside the home folder (R10). Cargo's dep-info (.d) files are not needed to run.
+  miri_work="$(mktemp -d /tmp/aquascope-miri.XXXXXX)"
+  cp -R "$sysroot/lib/rustlib/src/rust/library" "$miri_work/library"
+  MIRI_LIB_SRC="$miri_work/library" CARGO_HOME="$miri_work/cargo-home" MIRI_SYSROOT="$miri_work/sysroot" \
+    cargo +"$RUST_NIGHTLY" miri setup ||
     fail "cargo miri setup could not build the standard library for Miri"
-  cp -Rp "$build/miri-sysroot" "$bundle/miri-sysroot"
+  cp -Rp "$miri_work/sysroot" "$bundle/miri-sysroot"
   find "$bundle/miri-sysroot" -name '*.d' -delete
 
   if [ -n "$(find "$bundle" -type l)" ]; then fail "the bundle contains symbolic links; it must be real files"; fi
@@ -151,8 +161,10 @@ package() {
   echo "packaged: $vsix ($(node -p "(require('fs').statSync('$vsix').size / 1048576).toFixed(1)") MB)"
 }
 
-# The bundle never outlives the package step, whatever happens, and a VSIX left afterwards is this run's.
-trap 'rm -rf "$staged"' EXIT
+# The bundle never outlives the package step and the Miri library's temporary folder never outlives the
+# run, whatever happens, and a VSIX left afterwards is this run's.
+miri_work=""
+trap 'rm -rf "$staged"; [ -z "$miri_work" ] || rm -rf "$miri_work"' EXIT
 check
 vsix="$root/aquascope-vscode-extension-$target-$version.vsix"
 rm -f "$vsix"
