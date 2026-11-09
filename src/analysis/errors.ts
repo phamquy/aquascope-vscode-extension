@@ -1,4 +1,4 @@
-// Turns failed runs and build errors into the actionable messages of R10.
+// Turns failed runs and build errors into the actionable messages of R10, and of feature 008 for a crate.
 import type { RunOutcome } from './runner';
 import type { AnalyzeErrorCode, CharRange } from './types';
 
@@ -16,6 +16,8 @@ export interface CompilerError {
   message: string;
   /** The compiler's own human-readable text, written to the output channel. */
   rendered: string;
+  /** Where the error is: its primary span's file, as cargo names it, and its 1-based line. */
+  place?: { file: string; line: number };
 }
 
 /** The errors in cargo's JSON message stream; warnings, notes and non-compiler lines are skipped. */
@@ -26,11 +28,19 @@ export function parseCompilerErrors(stdout: string): CompilerError[] {
     try {
       const msg = JSON.parse(line) as {
         reason?: string;
-        message?: { level?: string; message?: string; code?: { code?: string } | null; rendered?: string | null };
+        message?: {
+          level?: string;
+          message?: string;
+          code?: { code?: string } | null;
+          rendered?: string | null;
+          spans?: { file_name?: string; line_start?: number; is_primary?: boolean }[];
+        };
       };
       const m = msg.message;
       if (msg.reason !== 'compiler-message' || m?.level !== 'error') continue;
-      errors.push({ code: m.code?.code, message: m.message ?? '', rendered: m.rendered ?? m.message ?? '' });
+      const span = m.spans?.find((s) => s.is_primary && s.file_name && s.line_start);
+      const place = span ? { file: span.file_name as string, line: span.line_start as number } : undefined;
+      errors.push({ code: m.code?.code, message: m.message ?? '', rendered: m.rendered ?? m.message ?? '', ...(place ? { place } : {}) });
     } catch {
       // Not a JSON line; cargo only writes JSON here, so ignore anything else.
     }
@@ -63,6 +73,55 @@ export function classifyBuildErrors(buildErrors: (CharRange | null)[], errors: C
   return {
     code: 'compileErrors',
     message: `The function at the cursor could not be analysed because the file has compile errors${where}. The compiler's messages are in the Aquascope output.`,
+  };
+}
+
+/**
+ * Why a run on a crate could not build it, from cargo's error output (feature 008): a dependency missing
+ * from the cargo cache (R6), or no linker for a build script or proc macro (R7). Undefined for anything else.
+ */
+export function crateBuildFailure(stderr: string, platform: NodeJS.Platform = process.platform): Failure | undefined {
+  const missing = /no matching package named `([^`]+)` found/.exec(stderr) ?? /failed to (?:download|get) `([^`\s]+)/.exec(stderr);
+  if (missing) {
+    return {
+      code: 'dependencyMissing',
+      message:
+        `The crate depends on \`${missing[1]}\`, which is not in the cargo cache, and Aquascope never downloads. ` +
+        'Run `cargo fetch` in the project, then run the analysis again.',
+    };
+  }
+  const linker = /linker `([^`]+)` not found/.exec(stderr);
+  if (linker) {
+    const install =
+      platform === 'darwin'
+        ? 'On macOS, install the Xcode Command Line Tools with `xcode-select --install`.'
+        : platform === 'win32'
+          ? "On Windows, install Visual Studio's Build Tools with the C++ workload."
+          : "Install your system's C compiler, such as `gcc` or `clang`.";
+    return {
+      code: 'linkerMissing',
+      message: `The crate has build scripts or proc macros, which need a system linker, and \`${linker[1]}\` was not found. ${install}`,
+    };
+  }
+  return undefined;
+}
+
+/** The compile errors of a crate that kept the function at the cursor from being analysed (feature 008, R8). */
+export function crateCompileErrors(errors: CompilerError[]): Failure {
+  const places = unique(errors.flatMap((e) => (e.place ? [`${e.place.file} line ${e.place.line}`] : [])));
+  const shown = places.slice(0, 5);
+  const where = shown.length === 0 ? '' : `, in ${shown.join(', ')}${places.length > shown.length ? ` and ${places.length - shown.length} more` : ''}`;
+  return {
+    code: 'compileErrors',
+    message: `The function at the cursor could not be analysed because the crate has compile errors${where}. The compiler's messages are in the Aquascope output.`,
+  };
+}
+
+/** A build script, which rustc_plugin cannot select as the crate to analyse (feature 008, R10). */
+export function unsupportedTarget(packageName: string): Failure {
+  return {
+    code: 'unsupportedTarget',
+    message: `This version cannot analyse a build script (the build.rs of ${packageName}). Its library, binaries, tests, examples and benches can be analysed.`,
   };
 }
 
