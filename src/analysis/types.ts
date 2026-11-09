@@ -28,6 +28,12 @@ export type AnalyzeErrorCode =
   | 'singleFileLimit'
   /** Other compile errors kept the function at the cursor from being analysed. */
   | 'compileErrors'
+  /** A dependency of the crate is not in the cargo cache, and the extension never downloads (feature 008, R6). */
+  | 'dependencyMissing'
+  /** A build script or proc macro of the crate could not be linked: no system linker (feature 008, R7). */
+  | 'linkerMissing'
+  /** The file is a build script, which this version cannot analyse (feature 008, R10). */
+  | 'unsupportedTarget'
   /** The interpreter runs the program, and the file has no `main` function (feature 007 R5). */
   | 'noMain'
   /** The program stopped while running: a panic, a failed assertion, an early exit or reading input (007 R5, D4). */
@@ -44,7 +50,13 @@ export type AnalyzeErrorCode =
  */
 export type AnalyzeResult =
   | { kind: 'ok'; output: AnalysisOutput }
-  | { kind: 'error'; code: AnalyzeErrorCode; message: string };
+  | {
+      kind: 'error';
+      code: AnalyzeErrorCode;
+      message: string;
+      /** The crate could not be analysed, and the notification offers to analyse the file alone (feature 008, D8). */
+      offersFileAlone?: boolean;
+    };
 
 /**
  * What `aquascope.showStackAndHeap` returns (feature 007). The trace's positions are Aquascope's own:

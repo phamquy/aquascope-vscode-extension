@@ -1,7 +1,10 @@
 // Feature 008 end to end: a function analysed with the rest of its crate, against the development bundle,
-// seen through the command's result, the panel's report and the output channel (T-048: AC1 to AC3, AC9).
+// seen through the command's result, the panel's report and the output channel (T-048: AC1 to AC3, AC9;
+// T-049: AC5, AC6, AC10 and R8).
 import * as assert from 'assert';
-import { readFileSync } from 'fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type { AnalysisOutput, AnalyzeResult } from '../../analysis/types';
 import type { AquascopeApi } from '../../extension';
@@ -25,6 +28,16 @@ async function runAt(editor: vscode.TextEditor, line: number, character: number)
 
 async function analyzeAt(file: string, line: number, character: number): Promise<AnalyzeResult> {
   return runAt(await vscode.window.showTextDocument(vscode.Uri.file(file), { viewColumn: vscode.ViewColumn.One }), line, character);
+}
+
+/** Runs the command's Analyze This File Alone action on an open file (D8). */
+async function analyzeAlone(file: string): Promise<AnalyzeResult> {
+  return (await vscode.commands.executeCommand<AnalyzeResult>(COMMAND, vscode.Uri.file(file), { alone: true })) as AnalyzeResult;
+}
+
+function failedWith(result: AnalyzeResult, code: string): Extract<AnalyzeResult, { kind: 'error' }> {
+  assert.ok(result.kind === 'error' && result.code === code, JSON.stringify(result));
+  return result as Extract<AnalyzeResult, { kind: 'error' }>;
 }
 
 function ok(result: AnalyzeResult): AnalysisOutput {
@@ -104,5 +117,68 @@ suite('feature 008 acceptance criteria, end to end', function () {
     // Reverted, the copy is restored from disk.
     const restored = ok(await analyzeAt(config, lineOf(config, 'let mut text'), 8)).body_range;
     assert.strictEqual(restored.start.line, lineOf(config, 'pub fn describe'));
+  });
+
+  test('AC5: a dependency in no cache is named with cargo fetch, nothing is downloaded, and the file alone is offered', async () => {
+    const lib = fixtureProject('missing-dep', 'src', 'lib.rs');
+    const result = failedWith(await analyzeAt(lib, lineOf(lib, 'let a = 40'), 8), 'dependencyMissing');
+    assert.match(result.message, /`aquascope-test-missing-crate`/);
+    assert.match(result.message, /`cargo fetch` in the project/);
+    assert.strictEqual(result.offersFileAlone, true);
+    assert.doesNotMatch(api.recentOutput(), /Downloading|Downloaded|Updating crates\.io index/);
+
+    const alone = ok(await analyzeAlone(lib));
+    assert.strictEqual(alone.body_range.start.line, lineOf(lib, 'pub fn answer'), 'the offered action analyses the file alone');
+  });
+
+  test("AC6: with no linker on PATH, a function using a workspace proc macro's output gets the linker message", async () => {
+    // A fresh copy, so that no earlier run has built the macro, and a PATH without /usr/bin, where cc is.
+    const tmp = mkdtempSync(path.join(os.tmpdir(), 'aquascope-proc-macro-'));
+    cpSync(fixtureProject('proc-macro'), tmp, { recursive: true });
+    const lib = path.join(tmp, 'app', 'src', 'lib.rs');
+    const userPath = process.env.PATH;
+    process.env.PATH = '/bin';
+    try {
+      const result = failedWith(await analyzeAt(lib, lineOf(lib, 'let greeting'), 8), 'linkerMissing');
+      assert.match(result.message, /need a system linker, and `cc` was not found/);
+      assert.strictEqual(result.offersFileAlone, true);
+      // The crate imports the macro with `use`, so without it no function of the crate is analysed: the run exits
+      // 0 with no results, and stderr names the linker (T-049).
+      failedWith(await analyzeAt(lib, lineOf(lib, 'let loud'), 8), 'linkerMissing');
+    } finally {
+      process.env.PATH = userPath;
+      await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('AC10: a function of an integration test is analysed, and build.rs gets the message that it cannot be', async () => {
+    const it = fixtureProject('targets', 'tests', 'it.rs');
+    assert.strictEqual(ok(await analyzeAt(it, lineOf(it, 'let once'), 8)).file_path, 'tests/it.rs');
+
+    const build = fixtureProject('targets', 'build.rs');
+    const result = failedWith(await analyzeAt(build, lineOf(build, 'let message'), 8), 'unsupportedTarget');
+    assert.match(result.message, /cannot analyse a build script/);
+    assert.strictEqual(result.offersFileAlone, true);
+    ok(await analyzeAlone(build));
+  });
+
+  test("R8: a function that fails to build is explained with the compile errors' files and lines; other files still work", async () => {
+    const lib = fixtureProject('minigrep', 'src', 'lib.rs');
+    const editor = await vscode.window.showTextDocument(vscode.Uri.file(lib), { viewColumn: vscode.ViewColumn.One });
+    try {
+      const line = lineOf(lib, 'found.into_iter()');
+      const text = editor.document.lineAt(line).text;
+      await editor.edit((e) => e.replace(new vscode.Range(line, 0, line, text.length), text.replace('.collect()', '.missing_method()')));
+      const result = failedWith(await runAt(editor, line, 8), 'compileErrors');
+      assert.match(result.message, new RegExp(`the crate has compile errors, in src/lib\\.rs line ${line + 1}\\.`));
+      assert.strictEqual(result.offersFileAlone, true);
+
+      const config = fixtureProject('minigrep', 'src', 'config.rs');
+      ok(await analyzeAt(config, lineOf(config, 'let mut text'), 8));
+    } finally {
+      await vscode.window.showTextDocument(vscode.Uri.file(lib), { viewColumn: vscode.ViewColumn.One });
+      await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+    }
   });
 });
