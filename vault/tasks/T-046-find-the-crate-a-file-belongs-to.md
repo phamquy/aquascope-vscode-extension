@@ -15,7 +15,7 @@ Spec: [[specs/features/008-whole-crate-analysis/spec.md]]
 
 - [ ] `project.ts` reads the workspace root, the package and target holding the file, external path dependencies and the copy root from the bundled `cargo metadata`
 - [ ] A file in no package goes to feature 003's analysis
-- [ ] Files under `tests/`, `examples/` or `benches/` and `build.rs` are flagged as unsupported
+- [ ] `build.rs` is flagged as unsupported, while files under `tests/`, `examples/` and `benches/` go to the crate run (D7, revised)
 - [ ] Unit tests cover these from captured metadata
 
 ## Notes

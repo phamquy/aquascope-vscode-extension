@@ -1,0 +1,66 @@
+warning: invoking `"xcrun" "--sdk" "macosx" "--show-sdk-path"` to find MacOSX.sdk failed: No such file or directory (os error 2)
+  |
+  = note: the SDK is needed by the linker to know where to find symbols in system libraries and for embedding the SDK version in the final object file
+  = help: pass the path of an Xcode installation via the DEVELOPER_DIR environment variable, or an SDK with the SDKROOT environment variable
+
+error: linker `cc` not found
+  |
+  = note: No such file or directory (os error 2)
+
+fn greet() -> std::string::String {
+    let mut _0: std::string::String;
+    let mut _2: std::string::String;
+    scope 1 {
+        scope 2 {
+            debug greeting => _1;
+            scope 9 {
+                scope 10 {
+                }
+            }
+        }
+        scope 3 {
+            scope 4 {
+                let _1: Greeting;
+            }
+            scope 5 {
+                scope 6 {
+                    scope 7 {
+                    }
+                    scope 8 {
+                    }
+                }
+            }
+        }
+    }
+
+    bb0: {
+        StorageLive(_1);
+        StorageLive(_2);
+        _2 = <std::string::String as std::convert::From<&'?2 str>>::from(const "hi") -> [return: bb1, unwind: bb4];
+    }
+
+    bb1: {
+        _1 = Greeting { text: move _2 };
+        drop(_2) -> [return: bb2, unwind: bb4];
+    }
+
+    bb2: {
+        StorageDead(_2);
+        FakeRead(ForLet(None), _1);
+        _0 = move (_1.0: std::string::String);
+        drop(_1) -> [return: bb3, unwind: bb4];
+    }
+
+    bb3: {
+        StorageDead(_1);
+        return;
+    }
+
+    bb4 (cleanup): {
+        resume;
+    }
+}
+
+alloc1 (size: 2, align: 1) {
+    68 69                                           │ hi
+}

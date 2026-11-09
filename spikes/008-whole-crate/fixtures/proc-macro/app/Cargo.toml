@@ -1,0 +1,7 @@
+[package]
+name = "pm-app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pm-derive = { path = "../derive" }

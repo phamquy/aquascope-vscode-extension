@@ -25,9 +25,9 @@ It builds a scratch copy of the fork with the two changes D2 and D3 describe, an
 - what cargo and Aquascope report for a dependency missing offline, a missing linker, a compile error in another file, and a file under `tests/` (R6 to R8, R10);
 - whether cargo creates or changes `Cargo.lock` in the copy.
 
-The results go into the spec's Appendix B, and any decision they overturn is revised there. The captured outputs become test data in `src/test/fixtures/data/`, so that the later tasks can test parsing and classification without the toolchain.
+The results go into the spec's Appendix B, and any decision they overturn is revised there. T-044 ran it on 2026-11-09: the results confirmed D1, D2, D4 and D6, and revised D3 and D7, as the paragraphs below now reflect. The captured outputs become test data in `src/test/fixtures/data/`, so that the later tasks can test parsing and classification without the toolchain.
 
-**The fork (D2, D3).** T-045 makes the two changes in [phamquy/aquascope](https://github.com/phamquy/aquascope), on a branch from `v0.4.0-vscode.1`. The first is an option of `cargo aquascope permissions` that names a file. With it, the run uses rustc_plugin's `CrateContainingFile` filter instead of `OnlyWorkspace`; without it, nothing changes. The second is a field on each result holding the path of the result's file, as the compiler saw it, relative to the workspace root. Each change gets a test in Aquascope's suite and passes its formatting and clippy checks. The fork is tagged `v0.4.0-vscode.2`, and each change is offered upstream as its own pull request. On the extension side, the task updates `pin.env`, rebuilds the development bundle as T-042 did, regenerates the TypeScript bindings with `scripts/export-aquascope-types.sh`, and updates ADR 0004 to list the fork's three changes. The existing captured outputs have no path field, and the parser reads a missing field as the analysed file itself.
+**The fork (D2, D3).** T-045 makes the two changes in [phamquy/aquascope](https://github.com/phamquy/aquascope), on a branch from `v0.4.0-vscode.1`. The first is an option of `cargo aquascope permissions` that names a file. With it, the run uses rustc_plugin's `CrateContainingFile` filter instead of `OnlyWorkspace`; without it, nothing changes. The second is a field holding the path of the result's file, as the compiler saw it, relative to the workspace root, on every result and on every build error (D3, revised). Each change gets a test in Aquascope's suite and passes its formatting and clippy checks. The fork is tagged `v0.4.0-vscode.2`, and each change is offered upstream as its own pull request. On the extension side, the task updates `pin.env`, rebuilds the development bundle as T-042 did, regenerates the TypeScript bindings with `scripts/export-aquascope-types.sh`, and updates ADR 0004 to list the fork's three changes. The existing captured outputs have no path field, and the parser reads a missing field as the analysed file itself.
 
 **Finding the crate (R1, R10, D7, D8).** A new module, `project.ts`, runs the bundled `cargo metadata --no-deps --offline --format-version 1` in the file's folder, with feature 003's run environment. A pure function then reads from the metadata:
 
@@ -36,7 +36,7 @@ The results go into the spec's Appendix B, and any decision they overturn is rev
 - any path dependencies outside the workspace root;
 - the copy root, the smallest folder that holds the workspace root and those dependencies.
 
-A file in no package goes to feature 003's analysis (D8). A file under `tests/`, `examples/` or `benches/`, or a `build.rs`, gets the message that this version cannot analyse it (D7, R10). If `cargo metadata` itself fails, for example on a broken manifest, the message says so, with the details in the log.
+A file in no package goes to feature 003's analysis (D8). A `build.rs` gets the message that this version cannot analyse it. Files under `tests/`, `examples/` and `benches/` go to the crate run like any other, since rustc_plugin chooses their targets itself (D7, revised; R10). If `cargo metadata` itself fails, for example on a broken manifest, the message says so, with the details in the log.
 
 **Copying the project (R4, R5, D1).** A new module, `projectCopy.ts`, gives each project a folder `<storage>/projects/<hash of the copy root>/` holding `src/`, the copy, and `target/`, the build output kept between runs. Before each run it brings the copy up to date in three steps:
 
@@ -44,7 +44,7 @@ A file in no package goes to feature 003's analysis (D8). A file under `tests/`,
 2. It writes the text of every unsaved editor under the copy root over its copy. It also records those files, so that the next run restores them from disk.
 3. Every file it writes gets the current time as its modification time, so that cargo rebuilds exactly what changed.
 
-If the probe shows that a later run on unchanged code returns nothing for a binary target, the module also touches the copy of the file at the cursor before each run. Nothing is written in the project itself, and any `Cargo.lock` cargo writes lands in the copy. Feature 003's cleanup of its temporary crates is unchanged.
+The probe showed that later runs on unchanged code return their results for libraries and binaries alike, so nothing needs touching. Nothing is written in the project itself, and any `Cargo.lock` cargo writes lands in the copy. Feature 003's cleanup of its temporary crates is unchanged.
 
 **Running on the crate (R1 to R3, R9, D6).** `analyze()` in `command.ts` sends a file the project module locates to the crate run, and any other file to feature 003's run.
 
@@ -56,8 +56,8 @@ If the probe shows that a later run on unchanged code returns nothing for a bina
 **Failures (R6 to R8, D5, D8).** `errors.ts` classifies the crate run's failures from cargo's output and the compiler's messages, using the probe's captures:
 
 - `dependencyMissing` names the dependency and says to run `cargo fetch` in the project;
-- `linkerMissing` says the crate needs a system linker, which on macOS comes with `xcode-select --install`;
-- `compileErrors` is reused, with the files and lines of the errors from a plain `cargo check` of the copy, as feature 003's D6 does;
+- `linkerMissing` says the crate needs a system linker, which on macOS comes with `xcode-select --install`. Cargo's ``linker `cc` not found`` identifies it, both when the whole run fails, for a crates.io dependency, and when only the functions using a workspace member's proc macro fail (R7);
+- `compileErrors` is reused, with the files and lines of the errors from a plain `cargo check` of the copy, as feature 003's D6 does. The path on a build error (D3, revised) tells whether the function at the cursor is the one that failed;
 - `unsupportedTarget` comes from the project module (D7).
 
 `CARGO_NET_OFFLINE` stays set, so no run ever downloads (D5). The notification for a crate failure carries an **Analyze This File Alone** action, which runs feature 003's analysis on the same editor and cursor (D8).
@@ -84,9 +84,9 @@ If the probe shows that a later run on unchanged code returns nothing for a bina
 ## Risks
 
 - **Running the project's code.** Analysing a crate builds it, which runs its build scripts and proc macros, and those of its dependencies, as `cargo check` and rust-analyzer do. The single-file analysis never ran such code. The extension declares no `untrustedWorkspaces` capability, so VS Code should disable it in Restricted Mode, which would mean crate analysis runs only in workspaces the user trusted. T-048 checks this by hand and records it. If it does not hold, the task stops and the question goes back to the spec.
-- **Repeat runs.** If a later run on unchanged code returns nothing for some targets, results would vanish on the second click. The probe checks this, and touching the file at the cursor before each run is the fallback.
+- **Repeat runs.** Settled by the probe: later runs on unchanged code returned their results, for a library and a binary alike (spec Appendix B).
 - **Choosing the target.** rustc_plugin guesses which target a file belongs to, and its own comment calls the logic "a pile of hacks". For example, a module file in a package with both a library and a binary goes to the library. If it guesses wrong, the body is not found and the user gets feature 003's no-function message. The probe checks the fixtures, and the project module applies the same rule, so that the two at least agree.
-- **Preload and features.** Preload checks with `--all-features`, which can fail on crates whose features exclude each other, and may build dependencies the analysis does not reuse. If the probe shows either, the first run skips preload and runs the analysis itself with no timeout.
+- **Preload and features.** In the probe, the analysis reused everything preload built. But preload checks with `--all-features`, which can fail, or build what the analysis does not reuse, on a crate whose features exclude each other; no such crate was tried. If preload fails, the first run falls back to running the analysis itself with no timeout.
 - **Disk use.** Each project's `target/` holds its compiled dependencies, possibly hundreds of megabytes, and is kept between runs. This feature does not clean it up; a later change can, if it becomes a problem.
 - **Large projects.** The copy includes everything except build output and `.git`, because cargo may need any file, for example through `include_str!` or a build script. A repository with large non-Rust content makes the first copy slow. The probe measures one such project.
 - **The project's cargo configuration.** The copy keeps the project's `.cargo/config.toml`, which cargo honours. 003's environment already overrides its compiler flags, but a configured cross-compilation target would fail, and the failure is reported as a compile error.
@@ -97,7 +97,7 @@ If the probe shows that a later run on unchanged code returns nothing for a bina
 
 - **The probe (T-044)** is a script, like spike 003's. Its captures feed the unit tests.
 - **Unit tests** cover these without the toolchain:
-  - `project.ts`: finding the crate from captured metadata, for a single package, a workspace, an external path dependency, a file under `tests/` and a file in no package.
+  - `project.ts`: finding the crate from captured metadata, for a single package, a workspace, an external path dependency, files under `tests/`, `examples/` and `benches/`, a `build.rs` and a file in no package. The probe's captured metadata is in `src/test/fixtures/data/crate/`.
   - `projectCopy.ts`: what is copied and skipped, unsaved text and its restoration, deleted files, modification times, and a project folder unchanged afterwards.
   - `select.ts`: keeping the active file's results, from the probe's multi-file capture.
   - `errors.ts`: the new classes, from the probe's captured cargo output.
@@ -114,7 +114,7 @@ If the probe shows that a later run on unchanged code returns nothing for a bina
 
 | Module | Requirements | Decides | Tested by |
 | --- | --- | --- | --- |
-| Fork: `plugin.rs`, `analysis/mod.rs` | R2, R3, D2, D3 | Run only the file's crate; name each result's file | Aquascope's suite |
+| Fork: `plugin.rs`, `analysis/mod.rs` | R2, R3, D2, D3 | Run only the file's crate; name the file of each result and each build error | Aquascope's suite |
 | `project.ts` | R1, R10, D7, D8 | Workspace root, package and target, copy root; single-file or crate run; unsupported targets | Unit, from captured metadata |
 | `projectCopy.ts` | R4, R5, D1 | What is copied, kept and restored; unsaved text; modification times | Unit |
 | `runner.ts` | R9, D6 | Runs with no timeout | Unit |
@@ -135,4 +135,4 @@ If the probe shows that a later run on unchanged code returns nothing for a bina
 | AC7 | Feature 003's `analyze.test.ts` and the other suites, unchanged |
 | AC8 | `crate.test.ts`: the second run on the minigrep fixture takes under 10 seconds, or the bound T-044 sets |
 | AC9 | `crate.test.ts`: an unsaved edit in `config.rs` changes the result, and the file on disk is unchanged |
-| AC10 | `crate.test.ts`: a file under the fixture's `tests/` gives `unsupportedTarget` |
+| AC10 | `crate.test.ts`: a function in the fixture's `tests/` file is analysed, and its `build.rs` gives `unsupportedTarget` |
