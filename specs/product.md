@@ -62,7 +62,7 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 - VS Code 1.90 or newer.
 - Platforms in order: darwin-arm64 (verified), linux-x64, win32-x64, then linux-arm64 and darwin-x64. Only darwin-arm64 has been run.
 - Zero install: the extension bundles `cargo-aquascope` and a trimmed nightly toolchain, one VSIX per platform (about 120 MB on darwin-arm64). Users need no rustup and nothing on their `PATH`.
-- Exceptions to zero install: crates whose dependencies have build scripts or proc macros need a system C linker, and the first analysis of a crate with dependencies needs the network unless they are already in the user's cargo cache.
+- Exceptions to zero install: analysing a file with its crate (feature 008) needs a system C linker when the crate or its dependencies have build scripts or proc macros, and the dependencies already in the user's cargo cache, since the extension never downloads; `cargo fetch` in the project fills the cache.
 
 ## Success criteria
 
@@ -109,4 +109,4 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 005 | Package per-platform VSIX with toolchain      | implemented |
 | 006 | Analyze from a button in the editor title bar | implemented |
 | 007 | Show the stack and heap at each step          | implemented |
-| 008 | Analyse a function with the rest of its crate | approved    |
+| 008 | Analyse a function with the rest of its crate | implemented |

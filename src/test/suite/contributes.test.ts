@@ -75,6 +75,13 @@ suite('analyze command contributions (R1, R14)', () => {
     }
   });
 
+  test('feature 008: documents analysing a file with its crate, what it needs and its limits in the README', () => {
+    const readme = readFileSync(path.join(ext.extensionPath, 'README.md'), 'utf8');
+    for (const text of ['rest of its crate', '`cargo fetch`', 'system linker', 'Restricted Mode', '**Analyze This File Alone**', '`build.rs`']) {
+      assert.ok(readme.includes(text), `README does not mention ${text}`);
+    }
+  });
+
   test('without a Rust editor, says so instead of running', async () => {
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     const result = await vscode.commands.executeCommand<AnalyzeResult>(COMMAND);

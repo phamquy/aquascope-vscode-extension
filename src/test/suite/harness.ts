@@ -1,6 +1,7 @@
 // Shared helpers for the test suites: the fixture workspace, the toolchain bundle (runTest.ts) and captured traces.
 import * as path from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { createHash } from 'crypto';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { parseInterpreterOutput } from '../../analysis/interpret';
@@ -24,6 +25,17 @@ export function fixture(name: string): vscode.Uri {
 /** A path in the fixture Cargo projects of `src/test/fixtures/projects/` (feature 008). */
 export function fixtureProject(...parts: string[]): string {
   return path.join(fixtureWorkspace(), '..', 'projects', ...parts);
+}
+
+/** Every file below `dir`, by relative path, with its size, modification time and content hash. */
+export function folderSnapshot(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const rel of readdirSync(dir, { recursive: true }) as string[]) {
+    const full = path.join(dir, rel);
+    const st = statSync(full);
+    if (st.isFile()) out[rel] = `${st.size} ${st.mtimeMs} ${createHash('sha1').update(readFileSync(full)).digest('hex')}`;
+  }
+  return out;
 }
 
 /** Captured tool output in `src/test/fixtures/data/`, read as text. */
