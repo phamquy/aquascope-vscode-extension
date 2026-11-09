@@ -13,7 +13,7 @@ Spec: [[specs/features/008-whole-crate-analysis/spec.md]]
 
 ## Done when
 
-- [ ] `projectCopy.ts` brings `<storage>/projects/<hash>/src` up to date from the copy root, skipping `.git` and cargo's build folders
+- [ ] `projectCopy.ts` brings `<storage>/projects/<hash>/src` up to date from the copy folders below the copy root (T-046), skipping `.git` and cargo's build folders
 - [ ] Only new or changed files are copied, removed files are deleted, and every write gets a fresh modification time
 - [ ] Unsaved editors' text is written over the copies and restored from disk on the next run
 - [ ] Unit tests cover these, and that the project folder is unchanged
