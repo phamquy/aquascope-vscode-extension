@@ -95,7 +95,8 @@ suite('feature 007 acceptance criteria, end to end', function () {
     const result = await run();
     assert.ok(result.kind === 'error' && result.code === 'programFailed', JSON.stringify(result));
     assert.match(result.message, /stopped while running/);
-    assert.ok(api.recentOutput().includes('interpreter output: {"Err":{"type":"BuildError","range":null}}'), api.recentOutput().slice(-2000));
+    // The interpreter's bare build error; the fork adds `"file_path":null` to it (ADR 0004).
+    assert.match(api.recentOutput(), /interpreter output: \{"Err":\{"type":"BuildError","range":null[,}]/, api.recentOutput().slice(-2000));
   });
 
   test('AC5: an unsaved edit is run', async () => {
