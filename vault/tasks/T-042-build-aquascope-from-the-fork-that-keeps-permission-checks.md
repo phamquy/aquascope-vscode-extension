@@ -1,7 +1,7 @@
 ---
 id: T-042
 title: "Build Aquascope from the fork that keeps permission checks"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-08
