@@ -1,7 +1,7 @@
 ---
 id: T-045
 title: "Add the file option and result paths to the fork"
-status: review
+status: done
 priority: medium
 feature: "008-whole-crate-analysis"
 created: 2026-11-09
