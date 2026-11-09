@@ -34,13 +34,13 @@ The results go into the spec's Appendix B, and any decision they overturn is rev
 - the workspace root;
 - the package and target whose source folder holds the file, by the same rule rustc_plugin uses, so that the two agree;
 - any path dependencies outside the workspace root;
-- the copy root, the smallest folder that holds the workspace root and those dependencies.
+- the copy root, the smallest folder that holds the workspace root and those dependencies, and the folders to copy below it: the workspace root and each of those dependencies. Copying only those folders keeps paths such as `path = "../shared"` valid without copying everything else under the copy root, which for a project and a library side by side in the home folder would be the whole home folder (T-046).
 
 A file in no package goes to feature 003's analysis (D8). A `build.rs` gets the message that this version cannot analyse it. Files under `tests/`, `examples/` and `benches/` go to the crate run like any other, since rustc_plugin chooses their targets itself (D7, revised; R10). If `cargo metadata` itself fails, for example on a broken manifest, the message says so, with the details in the log.
 
 **Copying the project (R4, R5, D1).** A new module, `projectCopy.ts`, gives each project a folder `<storage>/projects/<hash of the copy root>/` holding `src/`, the copy, and `target/`, the build output kept between runs. Before each run it brings the copy up to date in three steps:
 
-1. It copies the copy root into `src/`, skipping `.git` and cargo's build folders, which cargo marks with a `CACHEDIR.TAG` file. Only files that are new or changed since the last run are copied, judged by size and modification time against a record of that run, and files deleted from the project are deleted from the copy.
+1. It copies the copy folders into `src/`, keeping their layout below the copy root, and skipping `.git` and cargo's build folders, which cargo marks with a `CACHEDIR.TAG` file. Only files that are new or changed since the last run are copied, judged by size and modification time against a record of that run, and files deleted from the project are deleted from the copy.
 2. It writes the text of every unsaved editor under the copy root over its copy. It also records those files, so that the next run restores them from disk.
 3. Every file it writes gets the current time as its modification time, so that cargo rebuilds exactly what changed.
 
