@@ -68,3 +68,28 @@ Variants of the failing shape, run with v0.4.0 and with the fork:
 | Two `match`es without early return | analysed | unchanged |
 
 In Aquascope's suite, the new `tests/analysis.rs` fails on v0.4.0 and passes on the fork. The rest of `cargo test -p aquascope` passes unchanged, as do `cargo fmt --check` and `cargo clippy -p aquascope -- -D warnings`.
+
+## Revised 2026-11-09: nine changes, tag `v0.4.0-vscode.3`
+
+Feature 009, showing the stack and heap of a program that is a whole crate, needs six more changes, all in the interpreter (its D3, D4 and D7, and the plan's one-crate build, measured by T-051's probe). The pin names tag `v0.4.0-vscode.3`, commit `0ae1372`, on the fork's branch `vscode-v0.4.0`, which now carries nine commits on upstream v0.4.0.
+
+Five of the new changes are general and are offered upstream, each with its own branch. The arguments and error changes touch the same lines, so the error change's branch is stacked on the arguments branch. The frame paths reuse #202's helper, so that branch is stacked on #202's. The sixth change, running a binary as one crate with its library, exists to let the extension show a library's functions inside the program that calls them. It adds lines to the library's root file as the compiler reads it, so it stays in the fork; the extension is its only user. The pin therefore no longer returns to upstream when upstream takes the other eight changes, unless the extension finds another way to step through a library: teaching the interpreter to step through other crates' functions, which needs a different mapping from MIR to source.
+
+Without the new options the interpreter runs as before, with three differences that every run sees:
+
+- The program sees its crate's name as its first argument.
+- When `MIRI_SYSROOT` is set, as the extension always sets it, every crate is built with Miri's standard library and `-Zalways-encode-mir` for the host target, in `target/<host>/` of the plugin's build folder.
+- Programs holding a string literal, a `&str` into an array or a trait object now run instead of crashing; feature 007's single-file run gains this too.
+
+The trace's frames gain `file_path`, which the extension's types now include.
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `8d4b2f2` | The program's arguments (`interpreter -- <args>`), after the crate's name, and `--disable-isolation`, through a new `InterpretOptions` | [#203](https://github.com/cognitive-engineering-lab/aquascope/pull/203), branch `interpreter-args` |
+| `47465c4` | When `MIRI_SYSROOT` is set, every crate is built as `cargo miri` does: `--sysroot`, `-Zalways-encode-mir` and `--target <host>` | [#205](https://github.com/cognitive-engineering-lab/aquascope/pull/205), branch `interpreter-miri-build` |
+| `d56e7f1` | `file_path` on each frame of a trace | [#206](https://github.com/cognitive-engineering-lab/aquascope/pull/206), branch `frame-file-paths`, on #202 |
+| `2bde423` | The reason a run ended without a trace goes to stderr; a crate with no entry point is an error, not a panic | [#204](https://github.com/cognitive-engineering-lab/aquascope/pull/204), branch `interpreter-errors`, on #203 |
+| `6a06827` | String literals and `&str` into arrays are read as their characters, a literal's memory is shown with the heap, and trait objects are shown by their type (upstream issues #75 and #118) | [#207](https://github.com/cognitive-engineering-lab/aquascope/pull/207), branch `interpreter-string-literals` |
+| `0ae1372` | `interpreter --bin-file <file>`: the binary is compiled as a module of its package's library, which is compiled as an executable with `no_main`, and the run starts at that module's `main` | Not offered: it serves the extension only |
+
+On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings`, and `cargo test -p aquascope -p aquascope_front` pass. The tests are 72 unit tests, the new `interpreter_options.rs` and `one_crate.rs`, and the interpreter snapshots, which gain `file_path` and three new programs. Each upstream branch passes the same checks for the tests it touches.
