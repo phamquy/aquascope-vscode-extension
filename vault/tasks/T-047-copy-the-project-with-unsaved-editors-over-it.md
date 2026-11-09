@@ -1,7 +1,7 @@
 ---
 id: T-047
 title: "Copy the project with unsaved editors over it"
-status: review
+status: done
 priority: medium
 feature: "008-whole-crate-analysis"
 created: 2026-11-09
