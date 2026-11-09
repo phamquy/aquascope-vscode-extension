@@ -33,7 +33,19 @@ Alternatives considered:
 - Changing the pin means deleting `build/aquascope-src` so the packaging script clones the new tag, and moving spike 002's checkout to the new tag before rebuilding the development bundle.
 - The captured fixture output in `src/test/fixtures/data/` stays valid. Appendix A compares the two versions.
 
-## Appendix A: v0.4.0 and the fork compared
+## Revised 2026-11-09: three changes, tag `v0.4.0-vscode.2`
+
+Feature 008, analysing a function with the rest of its crate, needs two more changes in Aquascope (its D2 and D3, measured by T-044's probe). The fork now carries three commits on top of upstream v0.4.0, and the pin names tag `v0.4.0-vscode.2`, commit `467a9ae`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `27ad0b3` | Keep a body's permission boundaries when its permission steps fail (issue #31) | [#199](https://github.com/cognitive-engineering-lab/aquascope/pull/199) |
+| `07bc660` | `--crate-of <file>`: analyse only the crate containing a file, through rustc_plugin's `CrateContainingFile` filter | [#201](https://github.com/cognitive-engineering-lab/aquascope/pull/201) |
+| `467a9ae` | `file_path` on each result and on each build error: the path of the body's file, as the compiler was given it | [#202](https://github.com/cognitive-engineering-lab/aquascope/pull/202) |
+
+The tag is on the fork's branch `vscode-v0.4.0`, which is `v0.4.0-vscode.1` with the second and third commits applied. Each of those also has its own branch from upstream v0.4.0, `crate-of-option` and `file-paths`, which its pull request uses. The embed frontend and the upstream release the fork is based on are unchanged.
+
+The pin returns to upstream only when a release holds all three changes, and until then every Aquascope upgrade means applying three commits instead of one. Without `--crate-of`, the fork runs exactly as before. Its output gains the `file_path` fields, which the extension's types now include. The captured fixtures made before this tag lack them, so the parser must not rely on the field for single-file runs.
 
 The output of `cargo aquascope permissions` for each of the 17 programs in `src/test/fixtures/workspace/` (edition 2024, library crate), from v0.4.0 and from the fork:
 
