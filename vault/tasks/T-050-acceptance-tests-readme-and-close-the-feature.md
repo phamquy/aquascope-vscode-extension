@@ -16,6 +16,7 @@ Spec: [[specs/features/008-whole-crate-analysis/spec.md]]
 - [ ] `crate.test.ts` passes AC1 to AC6 and AC8 to AC10, and feature 003's suites pass unchanged for AC7, in `npm test`
 - [ ] The README describes analysing a file with its crate, the limits, and the linker and cargo cache it needs
 - [ ] The spec's criteria are ticked, and feature 008 is `implemented` in the spec and `specs/product.md`
+- [ ] The extension is checked by hand to be disabled in Restricted Mode, and the result recorded (moved from T-048)
 - [ ] `npm run typecheck && npm run lint && npm test` pass
 
 ## Notes
