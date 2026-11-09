@@ -57,7 +57,7 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 
 <!-- SAMPLE -->
 
-- Pinned to Aquascope v0.4.0 and `nightly-2026-05-01` (from that tag's `rust-toolchain.toml`), built from a fork that adds one fix to v0.4.0 until upstream releases it (ADR 0004). Building `cargo-aquascope` needs that nightly with `rustc-dev`; running it needs only the nightly's rustc, cargo and rust-std (spike 002).
+- Pinned to Aquascope v0.4.0 and `nightly-2026-05-01` (from that tag's `rust-toolchain.toml`), built from a fork that adds three changes to v0.4.0 until upstream releases them (ADR 0004). Building `cargo-aquascope` needs that nightly with `rustc-dev`; running it needs only the nightly's rustc, cargo and rust-std (spike 002).
 - `cargo-aquascope` is not on crates.io; the packaging script builds it from the git tag on a machine of each platform (feature 005), and CI is to run that script once more platforms are packaged.
 - VS Code 1.90 or newer.
 - Platforms in order: darwin-arm64 (verified), linux-x64, win32-x64, then linux-arm64 and darwin-x64. Only darwin-arm64 has been run.

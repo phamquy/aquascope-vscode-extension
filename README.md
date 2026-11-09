@@ -45,7 +45,7 @@ For development without a package, build a development bundle from spike 002's o
 `npm run package` builds the VSIX for the machine it runs on; this version supports darwin-arm64 only. It needs rustup, git, the Xcode Command Line Tools, Node and npm, and the network while it builds. It works through five stages and stops with a message if any fails:
 
 1. It checks that the Aquascope checkout in `build/aquascope-src` matches the pin in `spikes/002-toolchain-bundling/pin.env`. After the pin changes, delete that folder so the new tag is cloned.
-2. It installs the pinned nightly and builds Aquascope. The pin names a fork of Aquascope with one fix, which keeps a function's markers when its tables cannot be worked out (ADR 0004).
+2. It installs the pinned nightly and builds Aquascope. The pin names a fork of Aquascope with the changes ADR 0004 lists, such as keeping a function's markers when its tables cannot be worked out.
 3. It assembles the trimmed toolchain with its licence files, and the standard library built for Miri, which Aquascope's interpreter needs.
 4. It runs the full test suite against exactly that toolchain.
 5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, including that no file holds your home folder's path, and prints its path and size (about 185 MB).
