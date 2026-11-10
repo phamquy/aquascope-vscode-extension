@@ -1,7 +1,7 @@
 ---
 id: T-054
 title: "Run the program with its crate and draw the active file's steps"
-status: review
+status: done
 priority: medium
 feature: "009-whole-crate-stack-heap"
 created: 2026-11-09
