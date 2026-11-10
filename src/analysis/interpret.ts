@@ -5,6 +5,7 @@
 // trace for a program that runs, even one that reaches undefined behaviour; a bare build error, with exit
 // code 0, for a program that stops while running; and no output, with a non-zero exit code, for code that
 // does not compile.
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import type * as vscode from 'vscode';
@@ -140,6 +141,31 @@ export interface CrateRunJob {
   sysroot: string;
 }
 
+/**
+ * The interpreter's build folder in a project's folder `dir`, for the Miri library at `sysroot` (T-057). Crates
+ * built against one Miri library cannot be used with another (E0460), and cargo does not notice when the
+ * library at a path is rebuilt, as installing a rebuilt package of the same version does, since the library is
+ * built anew each time. So each library gets its own folder, named by its path and its core library's size and
+ * modification time, and the folders of other libraries are removed.
+ */
+export async function interpreterTarget(dir: string, sysroot: string): Promise<string> {
+  let identity = sysroot;
+  const rustlib = path.join(sysroot, 'lib', 'rustlib');
+  for (const triple of await fs.readdir(rustlib).catch(() => [] as string[])) {
+    const lib = path.join(rustlib, triple, 'lib');
+    for (const name of await fs.readdir(lib).catch(() => [] as string[])) {
+      if (!/^libcore-.*\.rmeta$/.test(name)) continue;
+      const stat = await fs.stat(path.join(lib, name));
+      identity += `\0${triple}/${name}\0${stat.size}\0${stat.mtimeMs}`;
+    }
+  }
+  const name = `target-interpreter-${createHash('sha256').update(identity).digest('hex').slice(0, 12)}`;
+  for (const entry of await fs.readdir(dir).catch(() => [] as string[])) {
+    if (entry.startsWith('target-interpreter') && entry !== name) await fs.rm(path.join(dir, entry), { recursive: true, force: true });
+  }
+  return path.join(dir, name);
+}
+
 /** The trace with only the steps whose current frame is in `file`, and how many steps each file has. */
 export function stepsInFile(trace: MTrace<CharRange>, file: string): { trace: MTrace<CharRange>; counts: Map<string, number> } {
   const counts = new Map<string, number>();
@@ -185,12 +211,13 @@ export async function interpretCrate(job: CrateRunJob, token: vscode.Cancellatio
     const workspace = inCopy(folders, crate.copyRoot, crate.workspaceRoot);
 
     // The interpreter builds every crate with Miri's library, so it has its own build folder, which the
-    // permissions view's builds do not disturb (plan).
+    // permissions view's builds do not disturb (plan), one for each Miri library (T-057).
+    const target = await interpreterTarget(folders.dir, job.sysroot);
     const environment = runEnvironment(job.root, folders.dir, process.env, process.platform, {
       MIRI_SYSROOT: job.sysroot,
-      CARGO_TARGET_DIR: path.join(folders.dir, 'target-interpreter'),
+      CARGO_TARGET_DIR: target,
     });
-    const built = path.join(folders.dir, INTERPRETER_BUILT);
+    const built = path.join(target, INTERPRETER_BUILT);
     const first = !(await exists(built));
     const timeoutMs = first ? undefined : job.timeoutSeconds * 1000;
     const tool = (args: string[]) => run({ program: job.cargo, args, cwd: workspace, environment, timeoutMs, token, log: (l) => channel.appendLine(l) });

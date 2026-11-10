@@ -2,9 +2,10 @@
 // poem.txt` as one crate with its library: the interpreter's command line, the steps kept for the active file
 // and how they are drawn (R5, R8, D4).
 import * as assert from 'assert';
-import { readFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import { crateRunArgs, noStepsInFile, parseInterpreterOutput, stepsInFile, withoutBinModule } from '../../analysis/interpret';
+import { crateRunArgs, interpreterTarget, noStepsInFile, parseInterpreterOutput, stepsInFile, withoutBinModule } from '../../analysis/interpret';
 import type { CharRange, MTrace } from '../../analysis/types';
 import { STEP_LIMIT, traceInput } from '../../visualization/traceInput';
 import { fixtureData, fixtureProject } from './harness';
@@ -118,5 +119,34 @@ suite('drawing the steps of one file of a crate (feature 009, D4)', () => {
     const input = traceInput(trace, minigrepSource('src/lib.rs'), 5, 'src/lib.rs');
     assert.strictEqual(input.steps, 5);
     assert.match(input.notes[0], /Showing the first 5 of 12 steps/);
+  });
+});
+
+suite("the interpreter's build folder (T-057)", () => {
+  test('each Miri library gets its own folder, so a library rebuilt at the same path is not mixed with crates built for the old one', async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'aquascope-target-'));
+    try {
+      const lib = path.join(root, 'sysroot', 'lib', 'rustlib', 'aarch64-apple-darwin', 'lib');
+      mkdirSync(lib, { recursive: true });
+      const core = path.join(lib, 'libcore-1962b6c4cc00e7c2.rmeta');
+      writeFileSync(core, 'first build');
+      const project = path.join(root, 'project');
+      mkdirSync(path.join(project, 'target-interpreter'), { recursive: true }); // T-054's single folder
+
+      const first = await interpreterTarget(project, path.join(root, 'sysroot'));
+      assert.match(path.basename(first), /^target-interpreter-[0-9a-f]{12}$/);
+      assert.ok(!existsSync(path.join(project, 'target-interpreter')), 'the folder of unknown library removed');
+      mkdirSync(first);
+      assert.strictEqual(await interpreterTarget(project, path.join(root, 'sysroot')), first, 'the same library, the same folder');
+
+      // The library rebuilt at the same path, with the same file names, as packaging or a reinstall does.
+      writeFileSync(core, 'second build');
+      utimesSync(core, new Date(), new Date(Date.now() + 60_000));
+      const second = await interpreterTarget(project, path.join(root, 'sysroot'));
+      assert.notStrictEqual(second, first);
+      assert.ok(!existsSync(first), "the old library's folder is removed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
