@@ -1,7 +1,8 @@
 // Feature 009 end to end: Show Stack and Heap on a program that is a whole crate, against a bundle with the
 // Miri-built library, seen through the command's result and the panel's reports. The binary and the
 // arguments are given through the command's options, as the dialogs' choices are tested in program.test.ts.
-// T-052 added AC9 for a file alone; T-054 AC1, AC2, AC4, AC5 and AC8; T-055 AC3, AC7 and D6's offer.
+// T-052 added AC9 for a file alone; T-054 AC1, AC2, AC4, AC5 and AC8; T-055 AC3, AC7 and D6's offer; T-056
+// AC9 for a file of a package. AC6 is feature 007's suites, unchanged.
 import * as assert from 'assert';
 import { readFileSync } from 'fs';
 import * as vscode from 'vscode';
@@ -155,6 +156,19 @@ suite('feature 009 acceptance criteria, end to end', function () {
     assert.match(result.message, /the package ws-core has no binary/);
     const alone = (await vscode.commands.executeCommand<StackHeapResult>(COMMAND, { alone: true })) as StackHeapResult;
     assert.ok(alone.kind === 'error' && alone.code === 'noMain', JSON.stringify(alone));
+  });
+
+  test('AC9: a file of a package holding a reference to a string literal is drawn, with the characters in the heap', async () => {
+    const result = traced(await runIn(fixtureProject('with-dep', 'src', 'main.rs'), { arguments: [] }));
+    assert.strictEqual((await drawn()).steps, result.trace.steps.length);
+    const step = result.trace.steps.find((s) => s.stack.frames[0].locals.some((l) => l.name === 'title'));
+    assert.ok(step, 'a step with title');
+    const title = step.stack.frames[0].locals.find((l) => l.name === 'title');
+    assert.ok(title?.value.type === 'Pointer' && title.value.value.path.segment.type === 'Heap', JSON.stringify(title?.value));
+    const text = step.heap.locations[title.value.value.path.segment.value.index];
+    assert.ok(text.type === 'Array' && text.value.type === 'All', JSON.stringify(text));
+    const chars = text.value.value.map((c) => (c.type === 'Char' ? String.fromCharCode(c.value) : '?')).join('');
+    assert.strictEqual(chars, 'labels:');
   });
 
   test('AC5: after every run above, the fixture projects are unchanged, with no Cargo.lock or target/ written', () => {
