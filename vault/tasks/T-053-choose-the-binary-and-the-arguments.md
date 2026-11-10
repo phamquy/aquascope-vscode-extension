@@ -1,7 +1,7 @@
 ---
 id: T-053
 title: "Choose the binary and the arguments"
-status: review
+status: done
 priority: medium
 feature: "009-whole-crate-stack-heap"
 created: 2026-11-09
