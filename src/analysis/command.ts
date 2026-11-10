@@ -2,12 +2,14 @@
 // the Aquascope panel (feature 004, R1 and R5). A file that belongs to a Cargo package is analysed with the
 // rest of its crate, in a copy of its project (feature 008); any other file alone, in a temporary crate
 // (feature 003). Also `aquascope.showStackAndHeap` (feature 007), which runs the program in Aquascope's
-// interpreter; the two share one run in flight.
+// interpreter, with the rest of its crate when the file belongs to a package with a binary (feature 009);
+// the two share one run in flight.
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { classifyBuildErrors, crateBuildFailure, crateCompileErrors, Failure, parseCompilerErrors, runFailure, unsupportedTarget } from './errors';
-import { interpret } from './interpret';
+import { classifyBuildErrors, crateBuildFailure, crateCompileErrors, Failure, noBinary, parseCompilerErrors, runFailure, unsupportedTarget } from './errors';
+import { interpret, interpretCrate } from './interpret';
+import { chooseProgram, vscodeDialogs, type GivenProgram } from './program';
 import { locateCrate, realPath, type CrateInProject } from './project';
 import { inCopy, syncProject, type UnsavedEditor } from './projectCopy';
 import { outputChannel, run, withProgress, type ReportProgress, type RunOutcome } from './runner';
@@ -26,6 +28,14 @@ const ANALYZE_ALONE = 'Analyze This File Alone';
 
 /** Options of `aquascope.analyzeAtCursor` besides the URI: `alone` analyses the file without its crate (D8). */
 export interface AnalyzeOptions {
+  alone?: boolean;
+}
+
+/**
+ * Options of `aquascope.showStackAndHeap` (feature 009): the binary and the arguments, which are otherwise
+ * asked for (D1, D2), and `alone`, which runs the file without its crate, as feature 007 does (D6).
+ */
+export interface StackHeapOptions extends GivenProgram {
   alone?: boolean;
 }
 
@@ -100,9 +110,14 @@ export async function analyzeAtCursor(
 
 /**
  * Runs the active Rust editor's program in Aquascope's interpreter and draws its stack and heap in the
- * Aquascope panel (feature 007 R1, R2, R4).
+ * Aquascope panel (feature 007 R1, R2, R4). A file of a Cargo package with a binary runs that binary with the
+ * rest of its crate, and the panel draws the steps in the file (feature 009, R1, R5).
  */
-export async function showStackAndHeap(context: vscode.ExtensionContext, panel: VisualizationPanel): Promise<StackHeapResult> {
+export async function showStackAndHeap(
+  context: vscode.ExtensionContext,
+  panel: VisualizationPanel,
+  options: StackHeapOptions = {},
+): Promise<StackHeapResult> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'rust') {
     return reportTrace(error('noRustEditor', 'Open a Rust file with a `main` function, then run "Aquascope: Show Stack and Heap".'), panel);
@@ -115,8 +130,9 @@ export async function showStackAndHeap(context: vscode.ExtensionContext, panel: 
   if (!miri.ok) return reportTrace(error('toolNotFound', miri.message), panel);
 
   const { document } = editor;
+  const source = document.getText();
   const job = {
-    source: document.getText(),
+    source,
     file: document.uri.scheme === 'file' ? document.uri.fsPath : undefined,
     storage: context.globalStorageUri.fsPath,
     timeoutSeconds: timeoutSeconds(config),
@@ -124,7 +140,46 @@ export async function showStackAndHeap(context: vscode.ExtensionContext, panel: 
     cargo: toolchain.cargo,
     sysroot: miri.sysroot,
   };
-  return reportTrace(await runExclusive('Aquascope: running the program', (token) => interpret(job, token)), panel, job.source);
+
+  if (job.file !== undefined && !options.alone) {
+    const channel = outputChannel();
+    const located = await locateCrate({
+      file: job.file,
+      cargo: job.cargo,
+      environment: runEnvironment(job.root, job.storage),
+      timeoutMs: job.timeoutSeconds * 1000,
+      log: (l) => channel.appendLine(l),
+    });
+    switch (located.kind) {
+      case 'crate': {
+        // The questions come before the run, so its progress notification does not sit under them (D1, D2).
+        const program = await chooseProgram(located, context.workspaceState, vscodeDialogs, options);
+        if (program.kind === 'cancelled') return reportTrace(error('cancelled', 'The run was cancelled.'), panel);
+        if (program.kind === 'noBinary') return reportTrace(failed(noBinary(located.packageName)), panel);
+        const crateJob = {
+          ...job,
+          crate: located,
+          binary: program.binary,
+          arguments: program.arguments,
+          unsaved: vscode.workspace.textDocuments
+            .filter((d) => d.isDirty && d.uri.scheme === 'file')
+            .map((d) => ({ file: realPath(d.uri.fsPath), text: d === document ? source : d.getText() })),
+        };
+        const result = await runExclusive('Aquascope: running the program', (token, report) => interpretCrate(crateJob, token, report));
+        return reportTrace(result, panel, source);
+      }
+      case 'buildScript':
+        return reportTrace(failed(unsupportedTarget(located.packageName)), panel);
+      case 'metadataFailed':
+        channel.appendLine(`  cargo metadata failed:\n${located.detail}`);
+        return reportTrace(error('toolFailed', "cargo could not read the project's manifest. The details are in the Aquascope output."), panel);
+      case 'runFailed':
+        return reportTrace(failed(runFailure(located.outcome, 'cargo metadata', job.timeoutSeconds)), panel);
+      case 'none':
+        break; // in no package: the file runs alone, as in feature 007
+    }
+  }
+  return reportTrace(await runExclusive('Aquascope: running the program', (token) => interpret(job, token)), panel, source);
 }
 
 /**
@@ -134,7 +189,7 @@ export async function showStackAndHeap(context: vscode.ExtensionContext, panel: 
  */
 function reportTrace(result: StackHeapResult, panel: VisualizationPanel, source?: string): StackHeapResult {
   if (result.kind === 'ok') {
-    if (source !== undefined) panel.showTrace(result.trace, source);
+    if (source !== undefined) panel.showTrace(result.trace, source, result.file);
     return result;
   }
   if (result.code !== 'noRustEditor') outputChannel().appendLine(`  result: ${result.code}: ${result.message}`);

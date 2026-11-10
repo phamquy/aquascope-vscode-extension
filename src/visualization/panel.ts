@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import type { AnalysisOutput, CharRange, MTrace } from '../analysis/types';
 import { embedInput } from './embedInput';
-import { traceInput } from './traceInput';
+import { STEP_LIMIT, traceInput } from './traceInput';
 import { PageContent, pageResources, panelPage } from './page';
 
 export const VIEW_TYPE = 'aquascope.visualization';
@@ -41,8 +41,8 @@ export class VisualizationPanel implements vscode.Disposable {
    * Draws a program's trace in the same panel, replacing whichever view it showed, and opening it if it is
    * closed (feature 007 R4, D5). At most `STEP_LIMIT` steps are drawn, with a note saying so (R8).
    */
-  showTrace(trace: MTrace<CharRange>, source: string): void {
-    const input = traceInput(trace, source);
+  showTrace(trace: MTrace<CharRange>, source: string, file?: string): void {
+    const input = traceInput(trace, source, STEP_LIMIT, file);
     this.show(input.title, { kind: 'trace', input }, true);
   }
 

@@ -22,10 +22,12 @@ export interface TraceInput {
 
 /**
  * Builds the embed's input from the trace and the exact text that was run. The trace is copied, so the
- * caller's is unchanged.
+ * caller's is unchanged. `file`, set when the program ran with its crate (feature 009), is the active file's
+ * path relative to the workspace root, and every step's current frame is in it.
  */
-export function traceInput(trace: MTrace<CharRange>, source: string, limit = STEP_LIMIT): TraceInput {
+export function traceInput(trace: MTrace<CharRange>, source: string, limit = STEP_LIMIT, file?: string): TraceInput {
   const shown = structuredClone(trace);
+  if (file !== undefined) placeOtherFiles(shown, file);
   convertColumnsToUtf16(shown, source);
   const notes: string[] = [];
   const total = shown.steps.length;
@@ -45,6 +47,22 @@ export function traceInput(trace: MTrace<CharRange>, source: string, limit = STE
     .map((line) => line.replace(/\r$/, ''))
     .join('\n');
   return { code, response: { Ok: shown }, title: TRACE_TITLE, notes, steps: shown.steps.length };
+}
+
+/**
+ * Moves the positions of frames in files other than `file` to the start of the drawn file (feature 009, D4).
+ * The renderer draws only the current frame's position, but reads every frame's against the drawn text, and
+ * throws on a line the text does not have; such frames keep their names and locals.
+ */
+function placeOtherFiles(trace: MTrace<CharRange>, file: string): void {
+  const start = (range: CharRange): CharRange => ({ ...range, start: { line: 0, column: 0 }, end: { line: 0, column: 0 } });
+  for (const step of trace.steps) {
+    for (const frame of step.stack.frames) {
+      if (frame.file_path === file) continue;
+      frame.body_span = start(frame.body_span);
+      frame.location = start(frame.location);
+    }
+  }
 }
 
 /** Miri's undefined behaviour, in words. */
