@@ -125,6 +125,14 @@ export function unsupportedTarget(packageName: string): Failure {
   };
 }
 
+/** A file of a package with no binary: Show Stack and Heap has no program to run (feature 009, R1). */
+export function noBinary(packageName: string): Failure {
+  return {
+    code: 'noBinary',
+    message: `Show Stack and Heap runs a program, and the package ${packageName} has no binary: no src/main.rs and no [[bin]] target. Open a file of a package with a binary, or a file with its own main.`,
+  };
+}
+
 /** Explains a run that did not finish with exit code 0 (R8, R10). */
 export function runFailure(outcome: RunOutcome, what: string, timeoutSeconds: number): Failure {
   switch (outcome.kind) {
