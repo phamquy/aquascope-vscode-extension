@@ -171,6 +171,18 @@ suite('feature 009 acceptance criteria, end to end', function () {
     assert.strictEqual(chars, 'labels:');
   });
 
+  test('the program sees the environment, as with cargo run: minigrep with IGNORE_CASE set searches without case (T-057)', async () => {
+    // Read by Config::build; the run passes the extension's environment to the program.
+    process.env.IGNORE_CASE = '1';
+    try {
+      const result = traced(await runIn(minigrep('src', 'lib.rs'), frogPoem));
+      const names = new Set(result.trace.steps.flatMap((s) => s.stack.frames.map((f) => f.name)));
+      assert.ok(names.has('search_case_insensitive') && !names.has('search'), JSON.stringify([...names]));
+    } finally {
+      delete process.env.IGNORE_CASE;
+    }
+  });
+
   test('AC5: after every run above, the fixture projects are unchanged, with no Cargo.lock or target/ written', () => {
     assert.deepStrictEqual(folderSnapshot(fixtureProject()), projectsBefore);
   });

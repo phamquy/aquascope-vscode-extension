@@ -93,3 +93,14 @@ The trace's frames gain `file_path`, which the extension's types now include.
 | `0ae1372` | `interpreter --bin-file <file>`: the binary is compiled as a module of its package's library, which is compiled as an executable with `no_main`, and the run starts at that module's `main` | Not offered: it serves the extension only |
 
 On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings`, and `cargo test -p aquascope -p aquascope_front` pass. The tests are 72 unit tests, the new `interpreter_options.rs` and `one_crate.rs`, and the interpreter snapshots, which gain `file_path` and three new programs. Each upstream branch passes the same checks for the tests it touches.
+
+## Revised 2026-11-09: ten changes, tag `v0.4.0-vscode.4`
+
+The interpreted program saw no environment variables. Lifting isolation lets Miri forward the host environment, but only the snapshot in `MiriConfig::env`, which Miri's own driver fills and `v0.4.0-vscode.3` left empty. A todo CLI run from the extension therefore found no `HOME` and exited at once (T-057). The pin names tag `v0.4.0-vscode.4`, commit `edb5694`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `edb5694` | The interpreter passes the host environment to Miri, which gives it to the program only when isolation is lifted | Added to [#203](https://github.com/cognitive-engineering-lab/aquascope/pull/203), branch `interpreter-args`, as `b5abc62` |
+
+`tests/interpreter_options.rs` gains a test: with isolation lifted the program sees `PATH`, isolated it does not. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
+
