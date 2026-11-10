@@ -33,7 +33,7 @@ For each, it records the following, and the results go into the spec's Appendix 
 
 The captured outputs become test data in `src/test/fixtures/data/stack-heap-crate/`, as T-044's did. T-051 ran it on 2026-11-09. The results confirmed D1, D3 and D4, settled D5, and added D7, because Aquascope's interpreter crashed on most of the fixtures' string values. The paragraphs below reflect them.
 
-**The fork (D3, D4, D7).** T-052 makes six changes in [phamquy/aquascope](https://github.com/phamquy/aquascope), on a branch from `v0.4.0-vscode.2`:
+**The fork (D3, D4, D7).** T-052 makes six changes in [phamquy/aquascope](https://github.com/phamquy/aquascope), on a branch from `v0.4.0-vscode.2`, and tags the result `v0.4.0-vscode.3`. Its options are `interpreter --disable-isolation --bin-file <file> -- <args>`:
 
 1. **Arguments and file access.** The interpreter command takes the program's arguments and passes them to Miri as the program's command line, after the crate's name. A separate option lifts isolation, as `-Zmiri-disable-isolation` does (D3).
 2. **Whole-program builds.** For the interpreter, rustc_plugin's `modify_cargo` gives every crate Miri's standard library and `-Zalways-encode-mir`, as `cargo miri` does. It also names the host as the target, so build scripts and proc macros keep the ordinary standard library. Without this change, the probe found that the functions of a library or a workspace member have no compiled code Miri can run, and that a crates.io dependency fails to build against a standard library from two places.
