@@ -36,6 +36,8 @@ export type AnalyzeErrorCode =
   | 'unsupportedTarget'
   /** The interpreter runs the program, and the file has no `main` function (feature 007 R5). */
   | 'noMain'
+  /** The file's package has no binary to run (feature 009, R1). */
+  | 'noBinary'
   /** The program stopped while running: a panic, a failed assertion, an early exit or reading input (007 R5, D4). */
   | 'programFailed'
   | 'timeout'
