@@ -76,4 +76,10 @@ export type StackHeapResult =
        */
       file?: string;
     }
-  | { kind: 'error'; code: AnalyzeErrorCode; message: string };
+  | {
+      kind: 'error';
+      code: AnalyzeErrorCode;
+      message: string;
+      /** The program could not be run with its crate, and the notification offers to run the file alone (feature 009, D6). */
+      offersFileAlone?: boolean;
+    };

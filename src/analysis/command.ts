@@ -25,6 +25,10 @@ const DEFAULT_TIMEOUT_SECONDS = 60;
 const WITH_DETAILS: AnalyzeErrorCode[] = ['singleFileLimit', 'compileErrors', 'dependencyMissing', 'linkerMissing', 'programFailed', 'timeout', 'toolFailed'];
 /** The notification's button that analyses the file alone after a crate could not be (feature 008, D8). */
 const ANALYZE_ALONE = 'Analyze This File Alone';
+/** The notification's button that runs the file alone after its crate's program could not be run (feature 009, D6). */
+const RUN_ALONE = 'Run This File Alone';
+/** Outcomes of a crate run that running the file alone would not change (feature 009, plan). */
+const NOT_OFFERED_ALONE: AnalyzeErrorCode[] = ['cancelled', 'programFailed', 'noStepsInFile'];
 
 /** Options of `aquascope.analyzeAtCursor` besides the URI: `alone` analyses the file without its crate (D8). */
 export interface AnalyzeOptions {
@@ -155,7 +159,7 @@ export async function showStackAndHeap(
         // The questions come before the run, so its progress notification does not sit under them (D1, D2).
         const program = await chooseProgram(located, context.workspaceState, vscodeDialogs, options);
         if (program.kind === 'cancelled') return reportTrace(error('cancelled', 'The run was cancelled.'), panel);
-        if (program.kind === 'noBinary') return reportTrace(failed(noBinary(located.packageName)), panel);
+        if (program.kind === 'noBinary') return reportTrace(offerRunAlone(failed(noBinary(located.packageName))), panel, undefined, document.uri);
         const crateJob = {
           ...job,
           crate: located,
@@ -166,13 +170,18 @@ export async function showStackAndHeap(
             .map((d) => ({ file: realPath(d.uri.fsPath), text: d === document ? source : d.getText() })),
         };
         const result = await runExclusive('Aquascope: running the program', (token, report) => interpretCrate(crateJob, token, report));
-        return reportTrace(result, panel, source);
+        return reportTrace(offerRunAlone(result), panel, source, document.uri);
       }
       case 'buildScript':
-        return reportTrace(failed(unsupportedTarget(located.packageName)), panel);
+        return reportTrace(offerRunAlone(failed(unsupportedTarget(located.packageName))), panel, undefined, document.uri);
       case 'metadataFailed':
         channel.appendLine(`  cargo metadata failed:\n${located.detail}`);
-        return reportTrace(error('toolFailed', "cargo could not read the project's manifest. The details are in the Aquascope output."), panel);
+        return reportTrace(
+          offerRunAlone(error('toolFailed', "cargo could not read the project's manifest. The details are in the Aquascope output.")),
+          panel,
+          undefined,
+          document.uri,
+        );
       case 'runFailed':
         return reportTrace(failed(runFailure(located.outcome, 'cargo metadata', job.timeoutSeconds)), panel);
       case 'none':
@@ -183,11 +192,21 @@ export async function showStackAndHeap(
 }
 
 /**
+ * A crate run's error, marked so that its notification offers to run the file alone (feature 009, D6). Not
+ * when the user cancelled, the program itself stopped, or the file had no steps, which running the file
+ * alone would not change.
+ */
+export function offerRunAlone(result: StackHeapResult): StackHeapResult {
+  return result.kind === 'error' && !NOT_OFFERED_ALONE.includes(result.code) ? { ...result, offersFileAlone: true } : result;
+}
+
+/**
  * Shows the outcome of a stack-and-heap run and returns it unchanged, for the tests (feature 007 R4, R5).
  * A trace goes to the panel; errors are notifications that also replace the diagram in an open panel, as
- * for the permissions view, except when nothing ran or the user cancelled.
+ * for the permissions view, except when nothing ran or the user cancelled. A crate's error offers to run the
+ * file at `uri` alone (feature 009, D6).
  */
-function reportTrace(result: StackHeapResult, panel: VisualizationPanel, source?: string): StackHeapResult {
+function reportTrace(result: StackHeapResult, panel: VisualizationPanel, source?: string, uri?: vscode.Uri): StackHeapResult {
   if (result.kind === 'ok') {
     if (source !== undefined) panel.showTrace(result.trace, source, result.file);
     return result;
@@ -195,9 +214,15 @@ function reportTrace(result: StackHeapResult, panel: VisualizationPanel, source?
   if (result.code !== 'noRustEditor') outputChannel().appendLine(`  result: ${result.code}: ${result.message}`);
   if (result.code === 'cancelled') return result;
   if (result.code !== 'noRustEditor') panel.showMessage(result.message);
-  const actions = WITH_DETAILS.includes(result.code) ? ['Show Output'] : [];
-  void vscode.window.showErrorMessage(`Aquascope: ${result.message}`, ...actions).then((choice) => {
-    if (choice) outputChannel().show(true);
+  const actions = [...(result.offersFileAlone && uri ? [RUN_ALONE] : []), ...(WITH_DETAILS.includes(result.code) ? ['Show Output'] : [])];
+  void vscode.window.showErrorMessage(`Aquascope: ${result.message}`, ...actions).then(async (choice) => {
+    if (choice === RUN_ALONE && uri) {
+      // The command runs the active editor, which may have changed since the run.
+      await vscode.window.showTextDocument(uri);
+      await vscode.commands.executeCommand('aquascope.showStackAndHeap', { alone: true } satisfies StackHeapOptions);
+    } else if (choice) {
+      outputChannel().show(true);
+    }
   });
   return result;
 }
