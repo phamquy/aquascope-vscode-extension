@@ -1,7 +1,7 @@
 ---
 id: T-052
 title: "Add arguments, file access, frame paths and one-crate runs to the fork"
-status: review
+status: done
 priority: medium
 feature: "009-whole-crate-stack-heap"
 created: 2026-11-09
