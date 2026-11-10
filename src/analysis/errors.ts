@@ -106,14 +106,44 @@ export function crateBuildFailure(stderr: string, platform: NodeJS.Platform = pr
   return undefined;
 }
 
-/** The compile errors of a crate that kept the function at the cursor from being analysed (feature 008, R8). */
-export function crateCompileErrors(errors: CompilerError[]): Failure {
+/** Where `errors` are, as `, in <file> line <n>, ...`, at most five places; empty when none has a place. */
+function errorPlaces(errors: CompilerError[]): string {
   const places = unique(errors.flatMap((e) => (e.place ? [`${e.place.file} line ${e.place.line}`] : [])));
   const shown = places.slice(0, 5);
-  const where = shown.length === 0 ? '' : `, in ${shown.join(', ')}${places.length > shown.length ? ` and ${places.length - shown.length} more` : ''}`;
+  return shown.length === 0 ? '' : `, in ${shown.join(', ')}${places.length > shown.length ? ` and ${places.length - shown.length} more` : ''}`;
+}
+
+/** The compile errors of a crate that kept the function at the cursor from being analysed (feature 008, R8). */
+export function crateCompileErrors(errors: CompilerError[]): Failure {
   return {
     code: 'compileErrors',
-    message: `The function at the cursor could not be analysed because the crate has compile errors${where}. The compiler's messages are in the Aquascope output.`,
+    message: `The function at the cursor could not be analysed because the crate has compile errors${errorPlaces(errors)}. The compiler's messages are in the Aquascope output.`,
+  };
+}
+
+/** The compile errors that kept a program from being run with its crate (feature 009, R6). */
+export function programCompileErrors(errors: CompilerError[]): Failure {
+  return {
+    code: 'compileErrors',
+    message:
+      `The program could not be run because its crate has compile errors${errorPlaces(errors)}, which include code that fails borrow checking. ` +
+      "The compiler's messages are in the Aquascope output.",
+  };
+}
+
+/**
+ * A program run with its crate that stopped before the end (feature 009, R7): the message names the
+ * arguments it was given, as typed after `cargo run --`, so that a user whose program rejected them sees why,
+ * and the interpreter's reason when it gave one, such as the program's exit code.
+ */
+export function programStopped(args: string[], reason?: string): Failure {
+  const given = args.length === 0 ? 'It was given no arguments.' : `It was given the arguments ${args.map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : JSON.stringify(a))).join(' ')}.`;
+  const why = reason ? ` Aquascope's interpreter said: ${reason}.` : '';
+  return {
+    code: 'programFailed',
+    message:
+      `The program stopped while running: it panicked, failed an assertion, exited early or read input, which this view cannot show. ${given}${why} ` +
+      'The details are in the Aquascope output.',
   };
 }
 

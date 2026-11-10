@@ -1,7 +1,7 @@
 // Feature 009 end to end: Show Stack and Heap on a program that is a whole crate, against a bundle with the
 // Miri-built library, seen through the command's result and the panel's reports. The binary and the
 // arguments are given through the command's options, as the dialogs' choices are tested in program.test.ts.
-// T-052 added AC9 for a file alone; T-054 adds AC1, AC2, AC4, AC5 and AC8; T-055 and T-056 add the rest.
+// T-052 added AC9 for a file alone; T-054 AC1, AC2, AC4, AC5 and AC8; T-055 AC3, AC7 and D6's offer.
 import * as assert from 'assert';
 import { readFileSync } from 'fs';
 import * as vscode from 'vscode';
@@ -124,6 +124,37 @@ suite('feature 009 acceptance criteria, end to end', function () {
     assert.ok(result.kind === 'error' && result.code === 'noStepsInFile', JSON.stringify(result));
     assert.match(result.message, /none of its steps are in tests\/search\.rs/);
     assert.match(result.message, /src\/lib\.rs, src\/config\.rs, src\/main\.rs/);
+  });
+
+  test('AC3: run with no arguments, minigrep is reported as stopped while running, and the message says it was given none', async () => {
+    const result = await runIn(minigrep('src', 'main.rs'), { arguments: [] });
+    assert.ok(result.kind === 'error' && result.code === 'programFailed', JSON.stringify(result));
+    assert.match(result.message, /It was given no arguments\./);
+    assert.match(result.message, /exit code 1/);
+    assert.ok(!result.offersFileAlone, 'running the file alone would not help');
+  });
+
+  test('AC7: the arguments given for a project are offered again, and accepting them runs the program with them', async () => {
+    traced(await runIn(minigrep('src', 'main.rs'), frogPoem)); // remembers frog poem.txt
+    // Run without arguments given, so the input box asks, filled with the remembered ones, and accept them.
+    const running = vscode.commands.executeCommand<StackHeapResult>(COMMAND);
+    let settled = false;
+    void Promise.resolve(running).finally(() => (settled = true));
+    for (let i = 0; i < 50 && !settled; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+    }
+    const result = traced((await running) as StackHeapResult);
+    assert.deepStrictEqual(result.trace.result, { type: 'Success' }, 'minigrep found its two arguments');
+  });
+
+  test('D6: a package without a binary is told so, offering the file alone, and the file alone runs as in feature 007', async () => {
+    const lib = fixtureProject('workspace', 'core', 'src', 'lib.rs');
+    const result = await runIn(lib);
+    assert.ok(result.kind === 'error' && result.code === 'noBinary' && result.offersFileAlone === true, JSON.stringify(result));
+    assert.match(result.message, /the package ws-core has no binary/);
+    const alone = (await vscode.commands.executeCommand<StackHeapResult>(COMMAND, { alone: true })) as StackHeapResult;
+    assert.ok(alone.kind === 'error' && alone.code === 'noMain', JSON.stringify(alone));
   });
 
   test('AC5: after every run above, the fixture projects are unchanged, with no Cargo.lock or target/ written', () => {
