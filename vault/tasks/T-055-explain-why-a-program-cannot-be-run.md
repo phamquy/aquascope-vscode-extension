@@ -1,7 +1,7 @@
 ---
 id: T-055
 title: "Explain why a program cannot be run"
-status: review
+status: done
 priority: medium
 feature: "009-whole-crate-stack-heap"
 created: 2026-11-09
