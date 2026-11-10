@@ -14,3 +14,4 @@ spikes/*/work/
 # Packaging work folder, and the bundle placed at the root only while vsce packages (feature 005)
 build/
 /aquascope/
+/.tmp
