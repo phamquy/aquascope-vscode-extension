@@ -38,6 +38,8 @@ suite('finding the crate of a file (feature 008, R1, R10)', () => {
       externalPathDependencies: [],
       copyRoot: '/copies/minigrep',
       copyFolders: ['.'],
+      binaries: [{ name: 'minigrep', rootFile: 'src/main.rs' }],
+      libraryRoot: 'src/lib.rs',
     });
   });
 

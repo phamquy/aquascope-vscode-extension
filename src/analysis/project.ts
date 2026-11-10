@@ -28,6 +28,13 @@ export interface CargoTarget {
   src_path: string;
 }
 
+/** A binary target of a package, which Show Stack and Heap can run (feature 009, R1). */
+export interface PackageBinary {
+  name: string;
+  /** Its root file relative to the workspace root, with `/`, as the fork's `--bin-file` takes it. */
+  rootFile: string;
+}
+
 /** A file in a crate: what the analysis needs to copy the project and run on it. */
 export interface CrateInProject {
   kind: 'crate';
@@ -44,6 +51,10 @@ export interface CrateInProject {
   copyRoot: string;
   /** The folders to copy, relative to `copyRoot`: the workspace root and each external dependency, `.` for the root itself. */
   copyFolders: string[];
+  /** The binaries of the file's package, in the metadata's order (feature 009, D1). */
+  binaries: PackageBinary[];
+  /** The root file of the package's library, relative to the workspace root, when it has one a binary can be compiled with. */
+  libraryRoot?: string;
 }
 
 export type CrateLocation =
@@ -78,15 +89,19 @@ export function locateInMetadata(metadata: CargoMetadata, file: string): CrateLo
     ),
   ].sort();
   const copyRoot = commonAncestor([root, ...external]);
+  const relative = (file: string): string => toSlashes(path.relative(root, file));
+  const library = pkg.targets.find((t) => t.kind.includes('lib') || t.kind.includes('rlib'));
   return {
     kind: 'crate',
     workspaceRoot: root,
     packageName: pkg.name,
     target: { name: target.name, kind },
-    relativePath: toSlashes(path.relative(root, file)),
+    relativePath: relative(file),
     externalPathDependencies: external,
     copyRoot,
     copyFolders: [root, ...external].map((folder) => toSlashes(path.relative(copyRoot, folder)) || '.'),
+    binaries: pkg.targets.filter((t) => t.kind.includes('bin')).map((t) => ({ name: t.name, rootFile: relative(t.src_path) })),
+    ...(library ? { libraryRoot: relative(library.src_path) } : {}),
   };
 }
 
