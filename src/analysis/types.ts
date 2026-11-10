@@ -38,6 +38,8 @@ export type AnalyzeErrorCode =
   | 'noMain'
   /** The file's package has no binary to run (feature 009, R1). */
   | 'noBinary'
+  /** The program ran with its crate, and none of its steps were in the active file (feature 009, R8). */
+  | 'noStepsInFile'
   /** The program stopped while running: a panic, a failed assertion, an early exit or reading input (007 R5, D4). */
   | 'programFailed'
   | 'timeout'
@@ -65,5 +67,13 @@ export type AnalyzeResult =
  * zero-based lines and character columns of the analysed text; drawing converts them (T-040).
  */
 export type StackHeapResult =
-  | { kind: 'ok'; trace: MTrace<CharRange> }
+  | {
+      kind: 'ok';
+      trace: MTrace<CharRange>;
+      /**
+       * When the program ran with its crate (feature 009): the active file's path relative to the workspace
+       * root. The trace then holds only the steps whose current frame is in that file (R5).
+       */
+      file?: string;
+    }
   | { kind: 'error'; code: AnalyzeErrorCode; message: string };
