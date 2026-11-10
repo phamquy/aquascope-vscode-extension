@@ -1,7 +1,7 @@
 ---
 id: 009-whole-crate-stack-heap
 title: Show the stack and heap of a program that is a whole crate
-status: approved
+status: implemented
 ---
 
 # Show the stack and heap of a program that is a whole crate
@@ -64,15 +64,15 @@ Revised 2026-11-09 from T-051's probe (Appendix B).
 
 ## Acceptance criteria
 
-- [ ] AC1: In a fixture of the Rust Book's minigrep, split into `main.rs`, `lib.rs` and a module, which reads its query and file name from the arguments and the file with `fs::read_to_string`, Show Stack and Heap run from `main.rs` with the arguments `frog poem.txt` draws `main`'s steps, and the run ends in success, not in feature 007's "stopped while running".
-- [ ] AC2: Run from the module holding `Config`'s parsing, the same program draws the steps in that file, and a step's stack holds `main`'s frame below the parsing function's.
-- [ ] AC3: Run with no arguments, minigrep is reported as stopped while running, and the message names the arguments, none.
-- [ ] AC4: A program whose binary uses a crates.io dependency, vendored in the fixture as in feature 008's tests, is run and drawn.
-- [ ] AC5: An unsaved edit in a module changes the trace, and the project folder is unchanged after the runs.
-- [ ] AC6: Feature 007's tests pass unchanged for files that belong to no package.
-- [ ] AC7: The arguments given for a project are offered again on the next run, as D2 settles.
-- [ ] AC8: A run from a file with no step in it says so.
-- [ ] AC9: A program holding a reference to a string literal, such as `let s = "hi";`, is drawn, both from a file of a package and from a file alone (feature 007), with the literal's text in the heap (D7).
+- [x] AC1: In a fixture of the Rust Book's minigrep, split into `main.rs`, `lib.rs` and a module, which reads its query and file name from the arguments and the file with `fs::read_to_string`, Show Stack and Heap run from `main.rs` with the arguments `frog poem.txt` draws `main`'s steps, and the run ends in success, not in feature 007's "stopped while running".
+- [x] AC2: Run from the module holding `Config`'s parsing, the same program draws the steps in that file, and a step's stack holds `main`'s frame below the parsing function's.
+- [x] AC3: Run with no arguments, minigrep is reported as stopped while running, and the message names the arguments, none.
+- [x] AC4: A program whose binary uses a crates.io dependency, vendored in the fixture as in feature 008's tests, is run and drawn.
+- [x] AC5: An unsaved edit in a module changes the trace, and the project folder is unchanged after the runs.
+- [x] AC6: Feature 007's tests pass unchanged for files that belong to no package.
+- [x] AC7: The arguments given for a project are offered again on the next run, as D2 settles.
+- [x] AC8: A run from a file with no step in it says so.
+- [x] AC9: A program holding a reference to a string literal, such as `let s = "hi";`, is drawn, both from a file of a package and from a file alone (feature 007), with the literal's text in the heap (D7).
 
 ## Out of scope
 
