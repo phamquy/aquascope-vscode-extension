@@ -8,7 +8,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import type * as vscode from 'vscode';
-import { classifyBuildErrors, CompilerError, crateBuildFailure, crateCompileErrors, Failure, parseCompilerErrors, runFailure } from './errors';
+import { classifyBuildErrors, CompilerError, crateBuildFailure, Failure, parseCompilerErrors, programCompileErrors, programStopped, runFailure } from './errors';
 import type { CrateInProject, PackageBinary } from './project';
 import { inCopy, syncProject, type UnsavedEditor } from './projectCopy';
 import { outputChannel, run, type ReportProgress, type RunOutcome } from './runner';
@@ -203,7 +203,8 @@ export async function interpretCrate(job: CrateRunJob, token: vscode.Cancellatio
       // The binary and its library did not compile as one crate. If the binary compiles alone, as one whose
       // own modules use `crate::` paths does, it runs alone, and only its own files have steps (plan).
       const errors = await binaryErrors(job, folders.dir, workspace, token);
-      if (errors === undefined || errors.length > 0) return errors === undefined ? failed(runFailure(outcome, 'cargo check', job.timeoutSeconds)) : failed(crateCompileErrors(errors));
+      if (errors === undefined) return failed(runFailure(outcome, 'cargo check', job.timeoutSeconds));
+      if (errors.length > 0) return failed(programCompileErrors(errors));
       channel.appendLine('  the binary and its library do not compile as one crate; running the binary alone');
       report('running the program');
       outcome = await tool(crateRunArgs(workspace, binary, undefined, job.arguments));
@@ -226,8 +227,9 @@ async function crateResult(
   token: vscode.CancellationToken,
 ): Promise<StackHeapResult> {
   const channel = outputChannel();
-  const reason = /^aquascope interpreter: .*$/m.exec(outcome.stderr)?.[0];
-  if (reason) channel.appendLine(`  ${reason}`);
+  // The fork says on stderr why a run ended without a trace, such as the program's exit code.
+  const reason = /^aquascope interpreter: (.*)$/m.exec(outcome.stderr)?.[1];
+  if (reason) channel.appendLine(`  aquascope interpreter: ${reason}`);
   const parsed = outcome.exitCode === 0 ? parseInterpreterOutput(outcome.stdout) : undefined;
   if (parsed?.kind === 'trace') {
     const { trace, counts } = stepsInFile(withoutBinModule(parsed.trace), job.crate.relativePath);
@@ -240,12 +242,12 @@ async function crateResult(
     channel.appendLine(`  unreadable output, ${parsed.reason}; it begins:\n${outcome.stdout.slice(0, 2000)}`);
     return error('toolFailed', `Aquascope's output could not be read (${parsed.reason}). The details are in the Aquascope output.`);
   }
-  if (outcome.exitCode === 0) return failed(classifyInterpretFailure([], 0)); // the program stopped while running
+  if (outcome.exitCode === 0) return failed(programStopped(job.arguments, reason)); // the program stopped while running (R7)
   const failure = crateBuildFailure(outcome.stderr);
   if (failure) return failed(failure);
   const errors = await binaryErrors(job, dir, workspace, token);
   if (errors === undefined) return failed(runFailure(outcome, 'Aquascope', job.timeoutSeconds));
-  return failed(errors.length > 0 ? crateCompileErrors(errors) : classifyInterpretFailure([], outcome.exitCode));
+  return failed(errors.length > 0 ? programCompileErrors(errors) : classifyInterpretFailure([], outcome.exitCode));
 }
 
 /**

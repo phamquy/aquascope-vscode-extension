@@ -1,8 +1,19 @@
 import * as assert from 'assert';
-import { classifyBuildErrors, CompilerError, crateBuildFailure, crateCompileErrors, parseCompilerErrors, runFailure, unsupportedTarget } from '../../analysis/errors';
+import { offerRunAlone } from '../../analysis/command';
+import {
+  classifyBuildErrors,
+  CompilerError,
+  crateBuildFailure,
+  crateCompileErrors,
+  parseCompilerErrors,
+  programCompileErrors,
+  programStopped,
+  runFailure,
+  unsupportedTarget,
+} from '../../analysis/errors';
 import type { RunOutcome } from '../../analysis/runner';
 import { selectAtCursor } from '../../analysis/select';
-import type { CharRange } from '../../analysis/types';
+import type { AnalyzeErrorCode, CharRange, StackHeapResult } from '../../analysis/types';
 import { fixtureData, fixtureText } from './harness';
 
 /** The build errors Aquascope reported for a fixture, as the command sees them with the cursor at `line`. */
@@ -115,5 +126,37 @@ suite('why a crate cannot be analysed (feature 008, R6 to R8, R10)', () => {
     const f = unsupportedTarget('targets');
     assert.strictEqual(f.code, 'unsupportedTarget');
     assert.match(f.message, /build script \(the build\.rs of targets\)/);
+  });
+});
+
+suite('why a program cannot be run with its crate (feature 009, R6, R7, D6)', () => {
+  test('a program that stopped names the arguments it was given, or says there were none (R7, AC3)', () => {
+    const none = programStopped([], 'the evaluated program completed with exit code 1');
+    assert.strictEqual(none.code, 'programFailed');
+    assert.match(none.message, /It was given no arguments\./);
+    assert.match(none.message, /Aquascope's interpreter said: the evaluated program completed with exit code 1\./);
+    assert.match(programStopped(['frog', 'missing.txt']).message, /It was given the arguments frog missing\.txt\. The details/);
+    assert.match(programStopped(['a frog', '']).message, /It was given the arguments "a frog" ""\./, 'quoted where a shell would need it');
+  });
+
+  test('compile errors are worded for running the program, with their files and lines (R6)', () => {
+    const errors = parseCompilerErrors(fixtureData('crate/minigrep-broken.check.jsonl'));
+    const f = programCompileErrors(errors);
+    assert.strictEqual(f.code, 'compileErrors');
+    assert.match(f.message, /^The program could not be run because its crate has compile errors, in src\/lib\.rs line 27,/);
+    assert.doesNotMatch(f.message, /function at the cursor/);
+  });
+
+  test('a failure to build or start the crate run offers to run the file alone, but not a cancel, a stop or a file without steps (D6)', () => {
+    const offered = (code: AnalyzeErrorCode) => {
+      const result = offerRunAlone({ kind: 'error', code, message: '' });
+      return result.kind === 'error' && result.offersFileAlone === true;
+    };
+    for (const code of ['compileErrors', 'dependencyMissing', 'linkerMissing', 'noBinary', 'unsupportedTarget', 'timeout', 'toolFailed'] as const) {
+      assert.ok(offered(code), code);
+    }
+    for (const code of ['cancelled', 'programFailed', 'noStepsInFile'] as const) assert.ok(!offered(code), code);
+    const ok: StackHeapResult = { kind: 'ok', trace: { steps: [], result: { type: 'Success' } } };
+    assert.strictEqual(offerRunAlone(ok), ok);
   });
 });
