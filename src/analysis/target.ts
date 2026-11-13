@@ -13,10 +13,27 @@ function record(editor: vscode.TextEditor | undefined): void {
   }
 }
 
+/**
+ * Records the active group's editor. VS Code reports the active text editor only while its window has OS
+ * focus, but it updates the active tab group either way, so the record follows both.
+ */
+function recordActiveGroup(): void {
+  const group = vscode.window.tabGroups.activeTabGroup;
+  const input = group.activeTab?.input;
+  if (!(input instanceof vscode.TabInputText)) return;
+  const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === input.uri.toString());
+  if (document?.languageId === 'rust') lastFocused.set(input.uri.toString(), group.viewColumn);
+}
+
 /** Starts the focus record, beginning with the editor that has focus now. */
 export function startFocusRecord(): vscode.Disposable {
   record(vscode.window.activeTextEditor);
-  return vscode.window.onDidChangeActiveTextEditor(record);
+  recordActiveGroup();
+  return vscode.Disposable.from(
+    vscode.window.onDidChangeActiveTextEditor(record),
+    vscode.window.tabGroups.onDidChangeTabGroups(recordActiveGroup),
+    vscode.window.tabGroups.onDidChangeTabs(recordActiveGroup),
+  );
 }
 
 /**

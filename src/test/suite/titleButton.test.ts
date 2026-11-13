@@ -22,7 +22,7 @@ async function run(...args: unknown[]): Promise<AnalyzeResult> {
   return (await vscode.commands.executeCommand<AnalyzeResult>(COMMAND, ...args)) as AnalyzeResult;
 }
 
-/** Waits for VS Code's report of the active text editor to catch up with a focus change. */
+/** Waits for VS Code's report of the active editor group to catch up with a focus change. */
 async function until(condition: () => boolean, what: string): Promise<void> {
   for (let waited = 0; !condition(); waited += 20) {
     if (waited >= 2000) assert.fail(`timed out waiting for ${what}`);
@@ -30,11 +30,14 @@ async function until(condition: () => boolean, what: string): Promise<void> {
   }
 }
 
-/** Focuses an editor group by its focus command and waits until VS Code reports the expected active editor. */
-async function focus(command: string, column: vscode.ViewColumn | undefined): Promise<void> {
+/**
+ * Focuses an editor group by its focus command and waits until VS Code reports it as the active group. The
+ * active group is waited on, not `activeTextEditor`: VS Code updates the group whether or not its window has
+ * OS focus, but the active text editor only while it does (issue #37).
+ */
+async function focus(command: string, column: vscode.ViewColumn): Promise<void> {
   await vscode.commands.executeCommand(command);
-  const what = column === undefined ? 'no active text editor (the panel has focus)' : `the editor in column ${column}`;
-  await until(() => vscode.window.activeTextEditor?.viewColumn === column, what);
+  await until(() => vscode.window.tabGroups.activeTabGroup.viewColumn === column, `the group in column ${column}`);
 }
 
 function renderedCode(report: PanelReport): string {
@@ -69,8 +72,10 @@ suite('feature 006: the command run from the editor title bar, end to end', func
     assert.strictEqual((await run()).kind, 'ok'); // opens the panel beside the editor, in column two
     await api.latestPanelReport();
 
-    await focus('workbench.action.focusSecondEditorGroup', undefined);
-    assert.strictEqual(vscode.window.activeTextEditor, undefined, 'VS Code reports no active text editor while the panel has focus');
+    await focus('workbench.action.focusSecondEditorGroup', vscode.ViewColumn.Two);
+    if (vscode.window.state.focused) {
+      assert.strictEqual(vscode.window.activeTextEditor, undefined, 'VS Code reports no active text editor while the panel has focus');
+    }
 
     place(editor, 8, 8); // `grow`
     const result = await run(editor.document.uri);
@@ -88,12 +93,12 @@ suite('feature 006: the command run from the editor title bar, end to end', func
     assert.strictEqual(renderedCode(await api.latestPanelReport()), AREA);
 
     await focus('workbench.action.focusFirstEditorGroup', vscode.ViewColumn.One);
-    await focus('workbench.action.focusThirdEditorGroup', undefined);
+    await focus('workbench.action.focusThirdEditorGroup', vscode.ViewColumn.Three);
     assert.strictEqual((await run(left.document.uri)).kind, 'ok');
     assert.strictEqual(renderedCode(await api.latestPanelReport()), GROW);
 
     await focus('workbench.action.focusSecondEditorGroup', vscode.ViewColumn.Two);
-    await focus('workbench.action.focusThirdEditorGroup', undefined);
+    await focus('workbench.action.focusThirdEditorGroup', vscode.ViewColumn.Three);
     assert.strictEqual((await run(left.document.uri)).kind, 'ok');
     assert.strictEqual(renderedCode(await api.latestPanelReport()), AREA);
   });
