@@ -1,7 +1,7 @@
 ---
 id: T-061
 title: "Say why a function has no step table"
-status: review
+status: done
 priority: medium
 feature: "011-missing-table-note"
 created: 2026-11-13
