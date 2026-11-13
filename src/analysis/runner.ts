@@ -4,8 +4,12 @@ import { ChildProcess, spawn } from 'child_process';
 import type { RunEnvironment } from './toolchain';
 
 let channel: vscode.OutputChannel | undefined;
-/** How many of the channel's latest lines are kept for `recentOutput`. */
-const RECENT_LINES = 500;
+/**
+ * How many of the channel's latest lines are kept for `recentOutput`. A run writes its selected result as
+ * indented JSON, which for a function with many steps runs to thousands of lines (8,636 for `next` of
+ * `n5_bst.rs`), and the log lines before it must still be readable.
+ */
+const RECENT_LINES = 20_000;
 const recent: string[] = [];
 
 /**
