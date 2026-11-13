@@ -104,3 +104,13 @@ The interpreted program saw no environment variables. Lifting isolation lets Mir
 
 `tests/interpreter_options.rs` gains a test: with isolation lifted the program sees `PATH`, isolated it does not. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
 
+
+## Revised 2026-11-13: eleven changes, tag `v0.4.0-vscode.5`
+
+Analysing a file whose function moves a field out of a recursive type, such as a linked stack's `pop` with `self.head = node.next`, failed with "Aquascope failed with exit code 101" (issue #61). Aquascope panicked with "Could not find path for place": the places it tracks stop expanding a recursive type, while the interior paths of a moved place keep going, so the lookup of an interior path failed. The pin names tag `v0.4.0-vscode.5`, commit `0bb6b88`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `0bb6b88` | The move relation skips an interior path of a moved place that has no tracked place, instead of panicking | Not yet; branch `move-out-of-recursive` in the fork |
+
+`tests/refinement/move_out_of_recursive.test` holds the case, and fails without the change. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
