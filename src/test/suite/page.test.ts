@@ -119,6 +119,20 @@ suite('panel page (004 R2, R6, R10)', () => {
     assert.ok(!html.includes('<b>'));
   });
 
+  test('writes the notes of an analysis above the embed, and none when there are none (feature 011, R1, R3)', () => {
+    const input = inputAt('05_method_mut_borrow', 18, 4);
+    const without = panelPage({ kind: 'analysis', input: { ...input, notes: [] } }, RESOURCES, 1);
+    assert.doesNotMatch(without, /aquascope-note/);
+    const html = panelPage({ kind: 'analysis', input: { ...input, notes: ['The step table could not be computed.'] } }, RESOURCES, 1);
+    assert.ok(html.includes('<p class="aquascope-note">The step table could not be computed.</p>'));
+    assert.ok(html.indexOf('class="aquascope-note"') < html.indexOf('class="aquascope-embed"'), 'the note comes first');
+  });
+
+  test('escapes the notes above an analysis (feature 011, AC5)', () => {
+    const input = { ...inputAt('05_method_mut_borrow', 18, 4), notes: ['a <b> & "c"'] };
+    assert.ok(panelPage({ kind: 'analysis', input }, RESOURCES, 1).includes('<p class="aquascope-note">a &lt;b&gt; &amp; "c"</p>'));
+  });
+
   test('passes a trace to the interpreter view with its step count, notes before the diagram (feature 007 R4)', () => {
     const source = fixtureText('i4_use_after_free.rs');
     const input = traceInput(capturedTrace('i4_use_after_free'), source);

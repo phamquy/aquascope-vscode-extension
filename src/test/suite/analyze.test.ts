@@ -5,7 +5,8 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 import { readdirSync, readFileSync, statSync } from 'fs';
 import * as vscode from 'vscode';
-import type { AnalyzeResult, CharPos } from '../../analysis/types';
+import type { AnalysisOutput, AnalyzeResult, CharPos } from '../../analysis/types';
+import { embedInput, NO_STEPS_NOTE, NOTHING_TO_SHOW_NOTE } from '../../visualization/embedInput';
 import { fixture, fixtureText, fixtureWorkspace, requireToolchain, testToolchain } from './harness';
 
 const COMMAND = 'aquascope.analyzeAtCursor';
@@ -165,6 +166,28 @@ suite('feature 003 acceptance criteria, end to end', function () {
     assert.ok(remove.boundaries.length > 0, 'remove_rec has permission boundaries');
     ok(await analyzeAt(file, bodyLine(file, 'insert'), 8), 'Bst::insert');
     ok(await analyzeAt(file, bodyLine(file, 'next'), 8), 'BstIter::next');
+  });
+
+  test('feature 011: the panel says why a function has no step table, for the functions of the binary search tree', async () => {
+    const file = 'n5_bst.rs';
+    const source = fixtureText(file);
+    const notesOf = async (fn: string, column: number): Promise<{ output: AnalysisOutput; notes: string[] }> => {
+      const output = ok(await analyzeAt(file, bodyLine(file, fn), column), fn);
+      return { output, notes: embedInput(output, source).notes };
+    };
+    for (const fn of ['remove_rec', 'next']) {
+      const { output, notes } = await notesOf(fn, 12);
+      assert.ok(output.boundaries.length > 0 && output.steps.length === 0, `${fn}: boundaries and no steps`);
+      assert.deepStrictEqual(notes, [NO_STEPS_NOTE], fn);
+    }
+    for (const fn of ['insert', 'contains']) {
+      const { output, notes } = await notesOf(fn, 8);
+      assert.ok(output.steps.length > 0, `${fn} has its step table`);
+      assert.deepStrictEqual(notes, [], fn);
+    }
+    const { output, notes } = await notesOf('new', 8);
+    assert.ok(output.boundaries.length === 0 && output.steps.length === 0, 'new: nothing at all');
+    assert.deepStrictEqual(notes, [NOTHING_TO_SHOW_NOTE], 'new');
   });
 
   test('AC9: the runs left the workspace folder unchanged', () => {
