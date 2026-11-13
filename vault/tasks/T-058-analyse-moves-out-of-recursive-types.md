@@ -1,7 +1,7 @@
 ---
 id: T-058
 title: "Analyse moves out of recursive types"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-13
