@@ -17,3 +17,4 @@ eslint.config.mjs
 spikes/**
 .gitignore
 build/**
+.tmp/**
