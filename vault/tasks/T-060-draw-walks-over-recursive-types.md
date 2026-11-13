@@ -1,7 +1,7 @@
 ---
 id: T-060
 title: "Analyse walks over recursive types"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-13
