@@ -57,11 +57,12 @@ export function panelPage(content: PageContent, res: PageResources, renderId: nu
   const embed = (code: string, operation: string, response: unknown, config: unknown) =>
     `<div class="aquascope-embed" data-code="${json(code)}" data-operations="${json([operation])}"` +
     ` data-responses="${json({ [operation]: response })}" data-config="${json(config)}" data-no-interact="true"></div>`;
+  const notes = (list: string[]) => list.map((note) => `<p class="aquascope-note">${text(note)}</p>\n    `).join('');
   const body =
     content.kind === 'analysis'
-      ? embed(content.input.code, 'permissions', content.input.response, EMBED_CONFIG)
+      ? notes(content.input.notes) + embed(content.input.code, 'permissions', content.input.response, EMBED_CONFIG)
       : content.kind === 'trace'
-        ? content.input.notes.map((note) => `<p class="aquascope-note">${text(note)}</p>\n    `).join('') +
+        ? notes(content.input.notes) +
           embed(content.input.code, 'interpreter', content.input.response, TRACE_CONFIG).replace('<div ', `<div data-steps="${content.input.steps}" `)
         : `<p class="aquascope-message">${text(content.text)}</p>`;
   const embedScript = content.kind === 'message' ? '' : `\n    <script src="${attr(res.embedScript)}"></script>`;
