@@ -4,7 +4,7 @@ import * as path from 'path';
 import { forEachPosition } from '../../analysis/positions';
 import { selectAtCursor } from '../../analysis/select';
 import type { AnalysisOutput, AquascopeEntry, CharPos } from '../../analysis/types';
-import { embedInput, EmbedInput } from '../../visualization/embedInput';
+import { embedInput, EmbedInput, NO_STEPS_NOTE, NOTHING_TO_SHOW_NOTE } from '../../visualization/embedInput';
 import { fixtureData, fixtureText, fixtureWorkspace } from './harness';
 
 /** 003's selected result for a cursor in a captured fixture, as the command would pass it on. */
@@ -109,5 +109,40 @@ suite('embed input from the analysis result (004 R3, D2)', () => {
         if ('Ok' in entry) assert.deepStrictEqual(embedInput(entry.Ok, source).dropped, [], `${name} at line ${entry.Ok.body_range.start.line}`);
       }
     }
+  });
+});
+
+suite('notes for a function without a step table (feature 011, AC6)', () => {
+  const base = () => selected('05_method_mut_borrow', 8, 8); // `grow`: has steps and boundaries
+
+  test('a result with steps has no note', () => {
+    const { output, source } = base();
+    assert.ok(output.steps.length > 0 && output.boundaries.length > 0, 'the fixture has both');
+    assert.deepStrictEqual(embedInput(output, source).notes, []);
+  });
+
+  test('a result with boundaries and no steps says the table could not be computed (R1)', () => {
+    const { output, source } = base();
+    assert.deepStrictEqual(embedInput({ ...output, steps: [] }, source).notes, [NO_STEPS_NOTE]);
+  });
+
+  test('a result with neither says there is nothing to show (R2)', () => {
+    const { output, source } = base();
+    assert.deepStrictEqual(embedInput({ ...output, steps: [], boundaries: [] }, source).notes, [NOTHING_TO_SHOW_NOTE]);
+  });
+
+  test('steps that are dropped for lying outside the shown lines still count as steps', () => {
+    const { output, source } = base();
+    const moved = structuredClone(output);
+    forEachPosition(moved.steps, (p) => {
+      p.line = 9999;
+    });
+    const input = embedInput(moved, source);
+    assert.ok(input.dropped.some((d) => d.startsWith('steps')), 'the steps were dropped');
+    assert.deepStrictEqual(input.notes, [], 'but Aquascope returned them, so no note');
+  });
+
+  test('the notes name no cause (D1)', () => {
+    assert.doesNotMatch(`${NO_STEPS_NOTE} ${NOTHING_TO_SHOW_NOTE}`, /return|early|\?|let/i);
   });
 });

@@ -13,6 +13,19 @@ export interface EmbedInput {
   title: string;
   /** Parts of the result left out because they point outside the shown lines, e.g. `boundaries[3]`. */
   dropped: string[];
+  /** Notes shown above the code: why the step table is missing (feature 011). */
+  notes: string[];
+}
+
+/** Shown when Aquascope returned boundaries but no steps, as the fork does when it cannot split the body (feature 011, R1). */
+export const NO_STEPS_NOTE = 'The step table could not be computed for this function. The markers at each use are still shown.';
+/** Shown when Aquascope returned neither boundaries nor steps (feature 011, R2). */
+export const NOTHING_TO_SHOW_NOTE = 'There is nothing to show for this function.';
+
+/** The notes for a result, from what Aquascope returned, not from what is drawn after `dropOutside` (feature 011, R1 to R3). */
+export function notesFor(output: AnalysisOutput): string[] {
+  if (output.steps.length > 0) return [];
+  return [output.boundaries.length > 0 ? NO_STEPS_NOTE : NOTHING_TO_SHOW_NOTE];
 }
 
 /**
@@ -28,6 +41,7 @@ export function embedInput(output: AnalysisOutput, source: string): EmbedInput {
     .map((line) => line.replace(/\r$/, ''))
     .join('\n');
 
+  const notes = notesFor(output);
   const shifted = structuredClone(output);
   forEachPosition(shifted, (pos) => {
     pos.line -= first;
@@ -35,7 +49,7 @@ export function embedInput(output: AnalysisOutput, source: string): EmbedInput {
   const dropped = dropOutside(shifted, last - first);
 
   const title = first === last ? `Aquascope: line ${first + 1}` : `Aquascope: lines ${first + 1}–${last + 1}`;
-  return { code, firstLine: first, response: [{ Ok: shifted }], title, dropped };
+  return { code, firstLine: first, response: [{ Ok: shifted }], title, dropped, notes };
 }
 
 /**
