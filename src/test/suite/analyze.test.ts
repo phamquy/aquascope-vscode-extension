@@ -210,6 +210,15 @@ suite('feature 003 acceptance criteria, end to end', function () {
     assert.strictEqual(gains.length, 1, `line gains read and own on line ${letLine + 1}: ${JSON.stringify(output.steps.map((s) => s.location.start.line))}`);
   });
 
+  test('issue #68: a file with a plain loop and break is analysed; that function keeps its boundaries, and its neighbours are analysed', async () => {
+    // The stepper panicked on `if … { break; }` in a `loop`, which aborted the whole file; the fork now catches it (ADR 0004).
+    const file = 'n7_loop_break.rs';
+    const count = ok(await analyzeAt(file, bodyLine(file, 'count'), 8), 'count');
+    assert.ok(count.boundaries.length > 0 && count.steps.length === 0, 'count: boundaries and no steps');
+    const describe = ok(await analyzeAt(file, bodyLine(file, 'describe'), 8), 'describe');
+    assert.ok(describe.steps.length > 0, 'describe has steps');
+  });
+
   test('AC9: the runs left the workspace folder unchanged', () => {
     assert.deepStrictEqual(snapshot(fixtureWorkspace()), workspaceBefore);
   });
