@@ -1,7 +1,7 @@
 ---
 id: 010-stepper-early-exits
 title: Show step tables for functions that leave early
-status: approved # draft | approved | implemented
+status: implemented # draft | approved | implemented
 ---
 
 # Show step tables for functions that leave early
@@ -52,7 +52,7 @@ Recorded 2026-11-13 when the draft was approved. Each one takes the recommendati
 - [x] AC4: For the same function, the line after the `if` has the table of the fall-through path: a variable moved only in the returning arm keeps its permissions there until its own last use.
 - [x] AC5: The outputs of the bodies the stepper handles today, in the existing fixtures and in Aquascope's suite, are unchanged.
 - [x] AC6: A `match` where some arms return and some continue, and a chain of `?`, get tables that match hand-checked expectations. The two shapes D2 leaves for later keep today's boundaries-only result without a panic, with a test in Aquascope's suite that says so.
-- [ ] AC8: A `let … else` whose `else` returns, followed by an `if` and `else`, gets tables: the `else` block's lines show the permissions on that path, and the lines after the `let` show the bound value and the other variables as the path that continues has them.
+- [x] AC8: A `let … else` whose `else` returns, followed by an `if` and `else`, gets tables: the `else` block's lines show the permissions on that path, and the lines after the `let` show the bound value and the other variables as the path that continues has them.
 - [x] AC7: `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass on the fork, and `npm run typecheck && npm run lint && npm test` pass in the extension.
 
 ## Out of scope
@@ -60,6 +60,7 @@ Recorded 2026-11-13 when the draft was approved. Each one takes the recommendati
 - Choosing an exit and seeing the permissions along the path to it. This needs one set of tables per path, which grows quickly with branches and loops, and a change to the embed frontend, which is vendored from the published `mdbook-aquascope` and not modified. It would be its own feature with its own spec.
 - The panel note that says why a table is missing. That is feature 011, and it stays useful for the functions this feature does not cover.
 - Changes to how loops are stepped when they do not leave early.
+- A table for a `return` line whose step falls in drop code shared with another exit, or for an `else` block reached from two tests of a nested pattern. Such a line shows no table; the tables shown are right, and the rest of the function is stepped (found in T-063).
 - The interpreter's stack and heap view (features 007 and 009), which does not use the stepper.
 
 ## Open questions

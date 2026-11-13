@@ -197,6 +197,19 @@ suite('feature 003 acceptance criteria, end to end', function () {
     assert.deepStrictEqual(notes, [NOTHING_TO_SHOW_NOTE], 'new');
   });
 
+  test('feature 010: a function with let … else gets its steps, with the bound value on the let line', async () => {
+    const file = 'n6_let_else.rs';
+    const output = ok(await analyzeAt(file, bodyLine(file, 'first_word_len'), 8), 'first_word_len');
+    assert.ok(output.steps.length > 0, 'steps (spec 010, AC8)');
+    // `let Some(line) = text else { … };` binds `line`: a table on that line shows it gaining read and own.
+    const letLine = fixtureText(file).split('\n').findIndex((l) => l.includes('let Some(line) = text else'));
+    const gains = output.steps
+      .filter((step) => step.location.start.line === letLine)
+      .flatMap((step) => step.state.flatMap((table) => table.state))
+      .filter(([place, diff]) => place === 'line' && diff.permissions.read.type === 'High' && diff.permissions.drop.type === 'High');
+    assert.strictEqual(gains.length, 1, `line gains read and own on line ${letLine + 1}: ${JSON.stringify(output.steps.map((s) => s.location.start.line))}`);
+  });
+
   test('AC9: the runs left the workspace folder unchanged', () => {
     assert.deepStrictEqual(snapshot(fixtureWorkspace()), workspaceBefore);
   });
