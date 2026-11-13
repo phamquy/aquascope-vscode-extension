@@ -1,7 +1,7 @@
 ---
 id: T-059
 title: "Make the title-button run independent of OS focus"
-status: review
+status: done
 priority: medium
 feature: "006-editor-title-button"
 created: 2026-11-13
