@@ -149,3 +149,13 @@ The join point's new definition gives the same location for every shape `v0.4.0-
 
 `tests/steps/early_exit_let_else*.test` hold three cases (a simple pattern, a nested pattern followed by a second `let … else`, and a `let … else` on a plain place followed by `?`), each checked by hand; the existing snapshots are unchanged, and `tests/analysis.rs` adds `let … else` functions to the test that early exits get steps. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass. Across the extension's 21 fixture files, only the new `n6_let_else.rs` changes, from 0 to 7 steps. Two `else` arms in the tests get no table on their line, because the step for their `return` falls in code shared with another exit or in a block reached from two tests; the tables shown are right, and the rest of each function is stepped.
 
+## Revised 2026-11-13: fifteen changes, tag `v0.4.0-vscode.9`
+
+Analysing a file with a plain `loop` that contains `if … { break; }` failed with "Aquascope failed with exit code 101" (issue #68). The stepper panicked with "index out of bounds" in `get_branch_scope`, and while the fork's first change turns a stepper error into a body with boundaries and no steps, a panic was not caught, so it aborted the analysis of every body in the crate. The pin names tag `v0.4.0-vscode.9`, commit `8bda2ab`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `8bda2ab` | A panic in the permission steps is caught like the stepper's errors: it is logged, and the body keeps its boundaries with no steps | Not yet; branch `catch-stepper-panic` in the fork |
+
+Spec 010 decided to fix the crash this way (D4) rather than the stepper's handling of that loop, which would also give such a loop its steps and is left for later. Catching is safe here because the panic happens in Aquascope's own code, outside any rustc query, and the stepper keeps no thread-local state that the unwinding could leave behind; the driver installs no compiler crash hook, so no crash report is written. `tests/analysis.rs` gains a test with the issue's program and a second function, which fails without the change with the issue's panic. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
+
