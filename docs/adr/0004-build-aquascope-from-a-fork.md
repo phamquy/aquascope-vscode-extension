@@ -114,3 +114,13 @@ Analysing a file whose function moves a field out of a recursive type, such as a
 | `0bb6b88` | The move relation skips an interior path of a moved place that has no tracked place, instead of panicking | Not yet; branch `move-out-of-recursive` in the fork |
 
 `tests/refinement/move_out_of_recursive.test` holds the case, and fails without the change. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
+
+## Revised 2026-11-13: twelve changes, tag `v0.4.0-vscode.6`
+
+Analysing a file with a function that walks a recursive tree through a mutable reference, such as a binary search tree's `remove`, which descends with `while let Some(ref mut l) = min_ref.left`, failed with "Aquascope failed with exit code 101" (issue #64). It is the same cause as issue #61 at a second place: the places Aquascope tracks stop expanding a recursive type, and `path_to_perm_boundary` panicked in `place_to_path` for a place the function uses but the table lacks. Skipping the place, as the move relation now does, would have dropped the annotation at an expression the user wrote, so the change adds the place to the table instead. The pin names tag `v0.4.0-vscode.6`, commit `483957f`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `50af5a4` | The table of tracked places also holds every place the MIR body mentions, so the permissions of an expression over a recursive type are derived like any other | Not yet; branch `place-table-used-places` in the fork |
+
+`tests/boundaries/walk_recursive_box.test` holds the case, with its snapshot, and fails without the change. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass. One thing the change does not touch: for a `while let Some(ref mut l) = place` scrutinee Aquascope expects read and drop but computes read and write, also for a non-recursive type, so the view may show a boundary there as violated.
