@@ -17,5 +17,6 @@ Each line maps to a note in `vault/tasks/`. Status lives in the note, not here.
 - [x] T-021 Classify failures, show the summary and wire the command (done when: captured diagnostics map to each R10 category and the command works end to end; R10, R13)
 - [x] T-022 Integration tests for the acceptance criteria (done when: AC1 to AC7 and AC9 pass in `npm test`, AC8 and AC11 recorded, spec criteria ticked)
 - [x] T-042 Build Aquascope from the fork that keeps permission checks (done when: issue #31's function is analysed end to end and drawn, the pin names the fork, ADR 0004 records it; after the feature, from issue #31)
+- [x] T-058 Analyse moves out of recursive types (done when: the fork skips an untracked interior path of a moved place, with a test, in tag `v0.4.0-vscode.5`; the pin, development bundle and bindings follow; an end-to-end test analyses a linked stack's `pop`, failing on the previous bundle; issue #61)
 
 T-013 comes first because its answers set the runner's flag strategy and the R10 error samples. T-014 and T-015 are independent of each other and can run in either order after it. T-016 to T-020 each build one module and need only T-015's harness; T-021 joins them, and T-022 comes last.
