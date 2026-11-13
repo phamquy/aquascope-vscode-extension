@@ -137,3 +137,15 @@ Two shapes still get no steps, as spec 010 decided (D2): an `if` chain where eve
 
 `tests/steps/early_exit_*.test` hold eight cases with their snapshots, each checked by hand against the code; the 19 existing step snapshots are unchanged, and `tests/analysis.rs` gains a test that the early-exit shapes get steps. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass. Across the extension's 20 fixture files, the step and boundary counts of every function are as on `v0.4.0-vscode.6` except `Config::parse` (0 to 10 steps) and the tree's `next` (0 to 20).
 
+## Revised 2026-11-13: fourteen changes, tag `v0.4.0-vscode.8`
+
+Feature 010's second task steps `let … else`. The stepper visited a `let` statement without opening a branch, so a `let … else` followed by another branch failed with "opening a branch missed a step" and the body lost its steps. The pin names tag `v0.4.0-vscode.8`, commit `baacb6c`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `baacb6c` | A `let … else` is a branch on its pattern whose `else` block diverges, with a step for the bindings on the `let`'s line; the join point of a branch with diverging arms is the first location after it that every non-diverging path passes through; two fixes in the branch bookkeeping for patterns tested in several `switchInt`s | Not yet; branch `step-let-else` in the fork |
+
+The join point's new definition gives the same location for every shape `v0.4.0-vscode.7` stepped, and its snapshots are unchanged; it also covers a nested pattern such as `let Some(Ok(x)) = e else`, whose `else` block is reached from both tests. The bookkeeping fixes are upstream bugs that the nested pattern reached: an implicit child of an implicit child branch looked up a span mapping only its ancestor had, and panicked (it now follows the ancestor, and returns an error if there is none), and `close_branch` compared against a branch's own table id instead of its union-find representative, so a branch unioned with an implicit child left its arms open.
+
+`tests/steps/early_exit_let_else*.test` hold three cases (a simple pattern, a nested pattern followed by a second `let … else`, and a `let … else` on a plain place followed by `?`), each checked by hand; the existing snapshots are unchanged, and `tests/analysis.rs` adds `let … else` functions to the test that early exits get steps. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass. Across the extension's 21 fixture files, only the new `n6_let_else.rs` changes, from 0 to 7 steps. Two `else` arms in the tests get no table on their line, because the step for their `return` falls in code shared with another exit or in a block reached from two tests; the tables shown are right, and the rest of each function is stepped.
+

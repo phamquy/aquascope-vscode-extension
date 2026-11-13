@@ -111,5 +111,5 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 | 007 | Show the stack and heap at each step          | implemented |
 | 008 | Analyse a function with the rest of its crate | implemented |
 | 009 | Show the stack and heap of a whole crate      | implemented |
-| 010 | Show step tables for functions that leave early | approved |
+| 010 | Show step tables for functions that leave early | implemented |
 | 011 | Say why a function has no step table | approved |
