@@ -143,12 +143,21 @@ suite('feature 003 acceptance criteria, end to end', function () {
     ok(await analyzeAt(file, bodyLine(file, 'main'), 4), 'main beside `use serde::Serialize;`');
   });
 
-  test('issue #31: a function that returns early and then branches again is analysed, with boundaries but no steps', async () => {
-    // Aquascope's stepper cannot segment it; the pinned fork keeps the boundaries (ADR 0004).
+  test('issue #31, feature 010: a function that returns early and then branches again is analysed, with boundaries and steps', async () => {
+    // The fork keeps the boundaries when the steps fail (ADR 0004), and since feature 010 the steps no longer fail here.
     const output = ok(await analyzeAt('n3_early_return.rs', bodyLine('n3_early_return.rs', 'parse'), 8), 'Config::parse');
     assert.strictEqual(output.body_range.start.line, bodyLine('n3_early_return.rs', 'parse') - 1, 'the body of parse');
     assert.ok(output.boundaries.length > 0, 'expected boundaries');
-    assert.strictEqual(output.steps.length, 0);
+    assert.ok(output.steps.length > 0, 'expected steps (spec 010, AC2)');
+  });
+
+  test('feature 010: a function that returns inside a loop gets its steps; one the stepper still cannot split keeps its boundaries', async () => {
+    const file = 'n5_bst.rs';
+    const next = ok(await analyzeAt(file, bodyLine(file, 'next'), 12), 'BstIter::next');
+    assert.ok(next.steps.length > 0, 'next has steps (spec 010, AC1)');
+    // An if chain where every arm returns, with a match on a tuple inside, is left for later (spec 010, D2).
+    const remove = ok(await analyzeAt(file, bodyLine(file, 'remove_rec'), 12), 'remove_rec');
+    assert.ok(remove.boundaries.length > 0 && remove.steps.length === 0, 'remove_rec has boundaries and no steps');
   });
 
   test('issue #61: a function that moves a field out of a recursive node is analysed, and so are its neighbours', async () => {
@@ -175,13 +184,11 @@ suite('feature 003 acceptance criteria, end to end', function () {
       const output = ok(await analyzeAt(file, bodyLine(file, fn), column), fn);
       return { output, notes: embedInput(output, source).notes };
     };
-    for (const fn of ['remove_rec', 'next']) {
-      const { output, notes } = await notesOf(fn, 12);
-      assert.ok(output.boundaries.length > 0 && output.steps.length === 0, `${fn}: boundaries and no steps`);
-      assert.deepStrictEqual(notes, [NO_STEPS_NOTE], fn);
-    }
-    for (const fn of ['insert', 'contains']) {
-      const { output, notes } = await notesOf(fn, 8);
+    const remove = await notesOf('remove_rec', 12);
+    assert.ok(remove.output.boundaries.length > 0 && remove.output.steps.length === 0, 'remove_rec: boundaries and no steps');
+    assert.deepStrictEqual(remove.notes, [NO_STEPS_NOTE], 'remove_rec');
+    for (const [fn, column] of [['insert', 8], ['contains', 8], ['next', 12]] as const) {
+      const { output, notes } = await notesOf(fn, column);
       assert.ok(output.steps.length > 0, `${fn} has its step table`);
       assert.deepStrictEqual(notes, [], fn);
     }

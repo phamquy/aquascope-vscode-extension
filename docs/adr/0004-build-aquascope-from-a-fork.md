@@ -124,3 +124,16 @@ Analysing a file with a function that walks a recursive tree through a mutable r
 | `50af5a4` | The table of tracked places also holds every place the MIR body mentions, so the permissions of an expression over a recursive type are derived like any other | Not yet; branch `place-table-used-places` in the fork |
 
 `tests/boundaries/walk_recursive_box.test` holds the case, with its snapshot, and fails without the change. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass. One thing the change does not touch: for a `while let Some(ref mut l) = place` scrutinee Aquascope expects read and drop but computes read and write, also for a non-recursive type, so the view may show a boundary there as violated.
+
+## Revised 2026-11-13: thirteen changes, tag `v0.4.0-vscode.7`
+
+Feature 010 gives step tables to functions that leave early and then branch again, such as `Config::parse` of issue #31, which until now had boundaries and no steps. The stepper closed every branch at the least post-dominator of its `switchInt`; when an arm returns, that point lies past the function's last statement, so the code after the branch could not be stepped and the fork's first change dropped the whole body's steps. The pin names tag `v0.4.0-vscode.7`, commit `23a8486`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `23a8486` | A branch with an arm of type `!` and at least one arm that continues takes its join point from the continuing arms; the error path of `?` is left out of the tables, and the `val` it binds is not shown | Not yet; branch `step-diverging-arms` in the fork |
+
+Two shapes still get no steps, as spec 010 decided (D2): an `if` chain where every arm returns with a `match` on a tuple inside, and `if … { break; }` in a `loop` followed by more code. `tests/analysis.rs` pins them as boundaries without steps. The change works around a bug in `CleanedBody::successors`, which keeps a `FalseEdge`'s imaginary target because it checks the target block's terminator instead of the source's; the fix at its source changes dominators everywhere and is left for upstream (D3).
+
+`tests/steps/early_exit_*.test` hold eight cases with their snapshots, each checked by hand against the code; the 19 existing step snapshots are unchanged, and `tests/analysis.rs` gains a test that the early-exit shapes get steps. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass. Across the extension's 20 fixture files, the step and boundary counts of every function are as on `v0.4.0-vscode.6` except `Config::parse` (0 to 10 steps) and the tree's `next` (0 to 20).
+
