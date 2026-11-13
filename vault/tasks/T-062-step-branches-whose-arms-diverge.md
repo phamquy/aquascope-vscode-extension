@@ -1,7 +1,7 @@
 ---
 id: T-062
 title: "Step branches whose arms diverge"
-status: review
+status: done
 priority: medium
 feature: "010-stepper-early-exits"
 created: 2026-11-13
