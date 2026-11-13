@@ -1,7 +1,7 @@
 ---
 id: T-064
 title: "Survive a stepper panic"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-13
