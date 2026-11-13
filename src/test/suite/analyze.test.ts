@@ -158,6 +158,15 @@ suite('feature 003 acceptance criteria, end to end', function () {
     ok(await analyzeAt(file, bodyLine(file, 'push'), 8), 'LinkedStack::push');
   });
 
+  test('issue #64: a function that walks a recursive tree with a mutable reference is analysed, and so are its neighbours', async () => {
+    // Aquascope panicked in its permission boundaries on `min_ref.left` of a `&mut Box<Node>` (ADR 0004).
+    const file = 'n5_bst.rs';
+    const remove = ok(await analyzeAt(file, bodyLine(file, 'remove_rec'), 12), 'remove_rec');
+    assert.ok(remove.boundaries.length > 0, 'remove_rec has permission boundaries');
+    ok(await analyzeAt(file, bodyLine(file, 'insert'), 8), 'Bst::insert');
+    ok(await analyzeAt(file, bodyLine(file, 'next'), 8), 'BstIter::next');
+  });
+
   test('AC9: the runs left the workspace folder unchanged', () => {
     assert.deepStrictEqual(snapshot(fixtureWorkspace()), workspaceBefore);
   });
