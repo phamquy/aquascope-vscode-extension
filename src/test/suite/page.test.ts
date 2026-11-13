@@ -164,7 +164,8 @@ suite('panel page (004 R2, R6, R10)', () => {
 suite('panel page in a real webview (004 Q1, R10)', function () {
   this.timeout(60_000);
 
-  // n3_early_return's `Config::parse` has boundaries but no steps (issue #31, ADR 0004).
+  // The captured n3_early_return result, from fork tag v0.4.0-vscode.1, has boundaries but no steps (issue #31,
+  // ADR 0004); it is kept as a sample of that shape, which the current pin no longer gives for it (feature 010).
   for (const [name, line, character] of [['05_method_mut_borrow', 18, 4], ['05_method_mut_borrow', 8, 8], ['n2_nested', 7, 25], ['n1_non_ascii', 2, 50], ['n3_early_return', 9, 8]] as const) {
     test(`draws ${name} at ${line}:${character} with no policy violation or script error`, async () => {
       const input = inputAt(name, line, character);
