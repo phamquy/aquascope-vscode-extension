@@ -150,6 +150,14 @@ suite('feature 003 acceptance criteria, end to end', function () {
     assert.strictEqual(output.steps.length, 0);
   });
 
+  test('issue #61: a function that moves a field out of a recursive node is analysed, and so are its neighbours', async () => {
+    // Aquascope panicked on `self.head = node.next` because the moved place's interior was untracked (ADR 0004).
+    const file = 'n4_linked_stack.rs';
+    const pop = ok(await analyzeAt(file, bodyLine(file, 'pop'), 8), 'LinkedStack::pop');
+    assert.strictEqual(pop.body_range.start.line, bodyLine(file, 'pop') - 1, 'the body of pop');
+    ok(await analyzeAt(file, bodyLine(file, 'push'), 8), 'LinkedStack::push');
+  });
+
   test('AC9: the runs left the workspace folder unchanged', () => {
     assert.deepStrictEqual(snapshot(fixtureWorkspace()), workspaceBefore);
   });
