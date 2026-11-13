@@ -1,7 +1,7 @@
 ---
 id: T-063
 title: "Step let-else"
-status: review
+status: done
 priority: medium
 feature: "010-stepper-early-exits"
 created: 2026-11-13
