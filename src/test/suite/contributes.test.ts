@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import * as vscode from 'vscode';
 import type { AnalyzeResult } from '../../analysis/types';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const COMMAND = 'aquascope.analyzeAtCursor';
 const SETTINGS = ['aquascope.toolchainPath', 'aquascope.analysisTimeoutSeconds'];
 

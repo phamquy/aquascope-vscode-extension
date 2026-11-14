@@ -12,7 +12,7 @@ import type { AquascopeApi } from '../../extension';
 import type { PanelReport } from '../../visualization/panel';
 import { fixture, fixtureProject, folderSnapshot, requireMiri } from './harness';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const COMMAND = 'aquascope.showStackAndHeap';
 
 /** Opens `file` and runs Show Stack and Heap on it with `options`. */

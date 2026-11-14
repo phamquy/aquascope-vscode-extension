@@ -8,7 +8,7 @@ import type { PanelReport } from '../../visualization/panel';
 import { VIEW_TYPE } from '../../visualization/panel';
 import { fixture, fixtureText, requireToolchain } from './harness';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const COMMAND = 'aquascope.analyzeAtCursor';
 const FILE = '05_method_mut_borrow.rs';
 const lines = (from: number, to: number) => fixtureText(FILE).split('\n').slice(from, to + 1).join('\n');
