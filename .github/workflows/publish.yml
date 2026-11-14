@@ -1,0 +1,35 @@
+# Publishes the VSIX packages attached to a GitHub release to the VS Code Marketplace.
+#
+# It builds nothing: each package is built and tested with `npm run package` on a machine of its platform
+# (feature 005) and attached to the release. It signs in with the Marketplace's Trusted Publishing, so no
+# token is stored: the `psyquy` publisher holds a policy naming this repository and this file, and
+# renaming the file breaks it. The README's section on publishing has the release steps.
+name: Publish to the Marketplace
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # download the release's packages
+      id-token: write # sign in to the Marketplace
+    steps:
+      - name: Download the release's VSIX packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.vsix' --dir vsix
+
+      # vsce 4 needs Node 22 and is the first version with --oidc.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      # The publisher, version and target platform come from each package's own manifest.
+      - name: Publish them
+        run: npx --yes @vscode/vsce@4.1.1 publish --oidc --packagePath vsix/*.vsix

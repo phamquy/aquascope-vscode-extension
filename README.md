@@ -55,3 +55,9 @@ For development without a package, build a development bundle from spike 002's o
 5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, including that no file holds your home folder's path, and prints its path and size (about 185 MB).
 
 The first run downloads the nightly and Aquascope's dependencies, about 1 GB, and takes a few minutes; later runs take under a minute. All the work happens in `build/`, which git ignores and which can be deleted at any time to free several GB.
+
+### Publishing to the Marketplace
+
+Publishing a GitHub release publishes the extension: the workflow in `.github/workflows/publish.yml` downloads the VSIX packages attached to the release and publishes them to the VS Code Marketplace under the `psyquy` publisher. It builds nothing, so what reaches the Marketplace is exactly the package `npm run package` built and tested. To release, merge the new version in `package.json` to `main`, run `npm run package` from it, and attach the package to a release tagged with that version, for example `gh release create v0.0.7 aquascope-vscode-extension-darwin-arm64-0.0.7.vsix --generate-notes`. A draft release publishes nothing until it is published. The Marketplace refuses a version it already has, so every release needs a new version.
+
+The workflow signs in with the Marketplace's Trusted Publishing instead of a token. That needs a policy, created once on the `psyquy` publisher's page at marketplace.visualstudio.com/manage under **Trusted Publishing**, naming the repository owner `phamquy`, the repository `aquascope-vscode-extension` and the workflow `publish.yml`, with no environment. Renaming the workflow file breaks the policy.
