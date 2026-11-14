@@ -1,0 +1,33 @@
+<!-- Source of media/icon.png, the extension icon. The Marketplace takes PNG only; after editing, render it with: rsvg-convert -w 256 -h 256 media/icon.svg -o media/icon.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123b52"/>
+      <stop offset="1" stop-color="#0a1f2e"/>
+    </linearGradient>
+    <linearGradient id="aqua" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5fe3e0"/>
+      <stop offset="1" stop-color="#22aebb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background tile -->
+  <rect x="0" y="0" width="256" height="256" rx="52" fill="url(#sea)"/>
+
+  <!-- Handle of the lens -->
+  <line x1="166" y1="166" x2="214" y2="214" stroke="url(#aqua)" stroke-width="26" stroke-linecap="round"/>
+
+  <!-- Lens: glass, then ring -->
+  <circle cx="112" cy="112" r="74" fill="#ffffff" fill-opacity="0.07"/>
+  <circle cx="112" cy="112" r="74" fill="none" stroke="url(#aqua)" stroke-width="15"/>
+
+  <!-- The permission markers Aquascope draws: R (read), W (write), O (own), in the panel's colours -->
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="700" font-size="25" fill="#ffffff" text-anchor="middle">
+    <rect x="56" y="94" width="34" height="36" rx="8" fill="#ff9500"/>
+    <text x="73" y="121">R</text>
+    <rect x="95" y="94" width="34" height="36" rx="8" fill="#0c7bdc"/>
+    <text x="112" y="121">W</text>
+    <rect x="134" y="94" width="34" height="36" rx="8" fill="#dc0055"/>
+    <text x="151" y="121">O</text>
+  </g>
+</svg>
