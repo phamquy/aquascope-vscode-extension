@@ -6,7 +6,7 @@ import { contentSecurityPolicy, EMBED_CONFIG, PageContent, pageResources, panelP
 import { traceInput } from '../../visualization/traceInput';
 import { capturedTrace, fixtureData, fixtureText } from './harness';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const RESOURCES: PageResources = {
   cspSource: 'https://file+.vscode-resource.example',
   embedScript: 'https://res.example/media/aquascope-embed/embed.iife.js',

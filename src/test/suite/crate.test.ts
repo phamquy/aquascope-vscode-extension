@@ -11,7 +11,7 @@ import type { AquascopeApi } from '../../extension';
 import type { PanelReport } from '../../visualization/panel';
 import { fixtureProject, folderSnapshot, requireToolchain } from './harness';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const COMMAND = 'aquascope.analyzeAtCursor';
 
 /** The zero-based line of the first line of `file` that contains `text`. */

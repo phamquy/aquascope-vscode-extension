@@ -78,7 +78,7 @@ suite('Show Stack and Heap, end to end (feature 007 R1 to R5)', function () {
   suiteSetup(async function () {
     const bundle = requireMiri(this);
     await vscode.workspace.getConfiguration('aquascope').update('toolchainPath', bundle, vscode.ConfigurationTarget.Global);
-    const ext = vscode.extensions.getExtension<AquascopeApi>('jackpham.aquascope-vscode-extension');
+    const ext = vscode.extensions.getExtension<AquascopeApi>('psyquy.aquascope-vscode-extension');
     assert.ok(ext);
     api = await ext.activate();
   });

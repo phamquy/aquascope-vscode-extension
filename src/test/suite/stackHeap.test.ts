@@ -8,7 +8,7 @@ import type { PanelReport } from '../../visualization/panel';
 import { STEP_LIMIT, TRACE_TITLE } from '../../visualization/traceInput';
 import { fixture, requireMiri } from './harness';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const COMMAND = 'aquascope.showStackAndHeap';
 
 async function open(file: string): Promise<vscode.TextEditor> {

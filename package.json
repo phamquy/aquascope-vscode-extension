@@ -3,7 +3,7 @@
   "displayName": "Aquascope",
   "description": "VS Code extension for Aquascope.",
   "version": "0.0.7",
-  "publisher": "jackpham",
+  "publisher": "psyquy",
   "license": "MIT",
   "repository": {
     "type": "git",

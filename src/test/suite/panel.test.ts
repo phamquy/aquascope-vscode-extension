@@ -6,7 +6,7 @@ import { PanelReport, VIEW_TYPE, VisualizationPanel } from '../../visualization/
 import { STEP_LIMIT, TRACE_TITLE } from '../../visualization/traceInput';
 import { capturedTrace, fixture, fixtureData, fixtureText, longTrace } from './harness';
 
-const EXTENSION_ID = 'jackpham.aquascope-vscode-extension';
+const EXTENSION_ID = 'psyquy.aquascope-vscode-extension';
 const FILE = '05_method_mut_borrow';
 
 function resultAt(line: number, character: number): AnalysisOutput {
