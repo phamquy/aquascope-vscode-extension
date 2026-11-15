@@ -219,6 +219,14 @@ suite('feature 003 acceptance criteria, end to end', function () {
     assert.ok(describe.steps.length > 0, 'describe has steps');
   });
 
+  test('T-065: a function with a closure inside a closure is analysed', async () => {
+    // rustc's borrow checker panicked on the closure spawned inside `thread::scope`'s closure, so the whole
+    // file failed with exit code 101; the fork now borrow-checks the enclosing function first (ADR 0004).
+    const file = 'n8_nested_closures.rs';
+    const sum = ok(await analyzeAt(file, bodyLine(file, 'parallel_sum_scoped'), 8), 'parallel_sum_scoped');
+    assert.ok(sum.boundaries.length > 0 && sum.steps.length > 0, 'parallel_sum_scoped: boundaries and steps');
+  });
+
   test('AC9: the runs left the workspace folder unchanged', () => {
     assert.deepStrictEqual(snapshot(fixtureWorkspace()), workspaceBefore);
   });
