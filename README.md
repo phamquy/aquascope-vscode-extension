@@ -1,11 +1,13 @@
 # Aquascope for VS Code
 
-See how Rust's ownership and borrowing work in your own code. This extension runs [Aquascope](https://github.com/cognitive-engineering-lab/aquascope) on the Rust file you are editing and draws its diagrams in a panel beside the editor, the same diagrams the [Rust Book's experiment edition](https://rust-book.cs.brown.edu) uses to teach ownership. It has two views: **permissions**, which shows what each variable may do at each line, and **stack and heap**, which runs your program and shows its memory step by step.
+See how Rust's ownership and borrowing work in your own code. This extension runs [Aquascope](https://github.com/cognitive-engineering-lab/aquascope) on the Rust file you are editing and draws its diagrams in a panel beside the editor, the same diagrams the [Rust Book&#39;s experiment edition](https://rust-book.cs.brown.edu) uses to teach ownership. It has two views: **permissions**, which shows what each variable may do at each line, and **stack and heap**, which runs your program and shows its memory step by step.
 
 A short demo of the extension in use:
 
-<!-- markdownlint-disable-next-line MD034 -- GitHub only turns a bare attachment link into a video player -->
-https://github.com/user-attachments/assets/b074c7ec-d93a-4ff4-a5d1-5d141dd60e49
+<video controls>
+<source src="https://github.com/user-attachments/assets/b074c7ec-d93a-4ff4-a5d1-5d141dd60e49" type="video/mp4">
+Your browser does not support the video tag
+</video>
 
 ## Requirements
 
@@ -59,10 +61,10 @@ The program runs inside Miri, Rust's interpreter for checking unsafe code, which
 
 ## Settings
 
-| Setting | Default | What it does |
-| --- | --- | --- |
-| `aquascope.analysisTimeoutSeconds` | `60` | Seconds an analysis may run before it is stopped (minimum 5). A run can also be cancelled from its progress notification. |
-| `aquascope.toolchainPath` | empty | Leave it empty to use the Aquascope tools and Rust toolchain that ship with the extension. Set it only to use your own build, a folder laid out as `bin/cargo-aquascope`, `bin/aquascope-driver` and `toolchain/`. It is read from user settings only, so a workspace cannot point the extension at other programs. |
+| Setting                              | Default | What it does                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aquascope.analysisTimeoutSeconds` | `60`  | Seconds an analysis may run before it is stopped (minimum 5). A run can also be cancelled from its progress notification.                                                                                                                                                                                                 |
+| `aquascope.toolchainPath`          | empty   | Leave it empty to use the Aquascope tools and Rust toolchain that ship with the extension. Set it only to use your own build, a folder laid out as `bin/cargo-aquascope`, `bin/aquascope-driver` and `toolchain/`. It is read from user settings only, so a workspace cannot point the extension at other programs. |
 
 ## Reporting a problem
 
