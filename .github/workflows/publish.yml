@@ -3,7 +3,7 @@
 # It builds nothing: each package is built and tested with `npm run package` on a machine of its platform
 # (feature 005) and attached to the release. It signs in with the Marketplace's Trusted Publishing, so no
 # token is stored: the `psyquy` publisher holds a policy naming this repository and this file, and
-# renaming the file breaks it. The README's section on publishing has the release steps.
+# renaming the file breaks it. DEVELOPMENT.md's section on publishing has the release steps.
 name: Publish to the Marketplace
 
 on:

@@ -37,7 +37,7 @@ check() {
     *) fail "this version packages darwin-arm64 only (spec 005, D1); this machine is $(uname -s) $(uname -m)" ;;
   esac
   for tool in rustup git node npm cc; do
-    command -v "$tool" > /dev/null || fail "$tool is not on PATH; see the README's section on building a package"
+    command -v "$tool" > /dev/null || fail "$tool is not on PATH; see DEVELOPMENT.md's section on building a package"
   done
   # shellcheck source=../spikes/002-toolchain-bundling/pin.env
   source "$pin"

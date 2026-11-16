@@ -10,6 +10,7 @@ node_modules/**
 **/*.map
 CLAUDE.md
 AGENTS.md
+DEVELOPMENT.md
 tsconfig*.json
 esbuild.mjs
 eslint.config.mjs
