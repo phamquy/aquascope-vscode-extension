@@ -1,7 +1,7 @@
 ---
 id: T-065
 title: "Analyse closures inside closures"
-status: review
+status: done
 priority: medium
 feature: "003-run-analysis-at-cursor"
 created: 2026-11-15
