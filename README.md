@@ -4,7 +4,11 @@ See how Rust's ownership and borrowing work in your own code. This extension run
 
 A short demo of the extension in use:
 
-<video controls>
+<!-- markdownlint-disable-next-line MD034 -- GitHub only turns a bare attachment link into a video player -->
+
+https://github.com/user-attachments/assets/b074c7ec-d93a-4ff4-a5d1-5d141dd60e49
+
+<video width="640" height="360" controls>
 <source src="https://github.com/user-attachments/assets/b074c7ec-d93a-4ff4-a5d1-5d141dd60e49" type="video/mp4">
 Your browser does not support the video tag
 </video>
