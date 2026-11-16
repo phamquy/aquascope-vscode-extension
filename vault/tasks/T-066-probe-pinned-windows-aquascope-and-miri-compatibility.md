@@ -1,7 +1,7 @@
 ---
 id: T-066
 title: "Probe pinned Windows Aquascope and Miri compatibility"
-status: review
+status: done
 priority: medium
 feature: "012-windows-support"
 created: 2026-11-16
