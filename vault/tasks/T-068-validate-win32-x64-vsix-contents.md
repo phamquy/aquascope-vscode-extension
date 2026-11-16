@@ -1,7 +1,7 @@
 ---
 id: T-068
 title: "Validate win32-x64 VSIX contents"
-status: review
+status: done
 priority: medium
 feature: "012-windows-support"
 created: 2026-11-16
