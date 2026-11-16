@@ -1,0 +1,35 @@
+# Developing the Aquascope extension
+
+This file is for working on the extension; the [README](README.md) describes it for the people who use it. The extension is built spec-first with AI assistance. [CLAUDE.md](CLAUDE.md) describes the workflow, from spec to plan to tasks to implementation, `specs/` holds what is being built and why, `docs/adr/` records the design decisions, and `vault/` is the task board, which opens in Obsidian.
+
+## Getting started
+
+```sh
+npm install
+npm run compile
+# press F5 in VS Code
+```
+
+Before marking a task done, run `npm run typecheck && npm run lint && npm test`.
+
+### A toolchain bundle for development
+
+For development without a package, build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. The first run also builds the standard library that Aquascope's interpreter needs, which takes about 15 seconds and needs rustup's pinned nightly with the `miri` and `rust-src` components; without them the bundle serves the permissions view only. `npm test` finds that bundle on its own.
+
+## Building a package
+
+`npm run package` builds the VSIX for the machine it runs on; this version supports darwin-arm64 only. It needs rustup, git, the Xcode Command Line Tools, Node and npm, and the network while it builds. It works through five stages and stops with a message if any fails:
+
+1. It checks that the Aquascope checkout in `build/aquascope-src` matches the pin in `spikes/002-toolchain-bundling/pin.env`. After the pin changes, delete that folder so the new tag is cloned.
+2. It installs the pinned nightly and builds Aquascope. The pin names a fork of Aquascope with the changes ADR 0004 lists, such as keeping a function's markers when its tables cannot be worked out, and running a program with its arguments and its library.
+3. It assembles the trimmed toolchain with its licence files, and the standard library built for Miri, which Aquascope's interpreter needs.
+4. It runs the full test suite against exactly that toolchain.
+5. It writes `aquascope-vscode-extension-darwin-arm64-<version>.vsix` at the repository root, checks its contents, including that no file holds your home folder's path, and prints its path and size (about 185 MB).
+
+The first run downloads the nightly and Aquascope's dependencies, about 1 GB, and takes a few minutes; later runs take under a minute. All the work happens in `build/`, which git ignores and which can be deleted at any time to free several GB.
+
+## Publishing to the Marketplace
+
+Publishing a GitHub release publishes the extension: the workflow in `.github/workflows/publish.yml` downloads the VSIX packages attached to the release and publishes them to the VS Code Marketplace under the `psyquy` publisher. It builds nothing, so what reaches the Marketplace is exactly the package `npm run package` built and tested. To release, merge the new version in `package.json` to `main`, run `npm run package` from it, and attach the package to a release tagged with that version, for example `gh release create v<version> aquascope-vscode-extension-darwin-arm64-<version>.vsix --generate-notes`. A draft release publishes nothing until it is published. The Marketplace refuses a version it already has, so every release needs a new version.
+
+The workflow signs in with the Marketplace's Trusted Publishing instead of a token. That needs a policy, created once on the `psyquy` publisher's page at marketplace.visualstudio.com/manage under **Trusted Publishing**, naming the repository owner `phamquy`, the repository `aquascope-vscode-extension` and the workflow `publish.yml`, with no environment. Renaming the workflow file breaks the policy.
