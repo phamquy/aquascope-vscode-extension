@@ -1,7 +1,7 @@
 ---
 id: T-067
 title: "Build the Windows toolchain bundle"
-status: review
+status: done
 priority: medium
 feature: "012-windows-support"
 created: 2026-11-16
