@@ -159,3 +159,12 @@ Analysing a file with a plain `loop` that contains `if … { break; }` failed wi
 
 Spec 010 decided to fix the crash this way (D4) rather than the stepper's handling of that loop, which would also give such a loop its steps and is left for later. Catching is safe here because the panic happens in Aquascope's own code, outside any rustc query, and the stepper keeps no thread-local state that the unwinding could leave behind; the driver installs no compiler crash hook, so no crash report is written. `tests/analysis.rs` gains a test with the issue's program and a second function, which fails without the change with the issue's panic. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
 
+## Revised 2026-11-15: sixteen changes, tag `v0.4.0-vscode.10`
+
+Analysing a file with a closure inside another closure, such as a `move` closure spawned inside the closure given to `std::thread::scope`, failed with "Aquascope failed with exit code 101" (T-065). rustc's borrow checker panicked with "no entry found for key". rustc_utils borrow-checks a closure through its immediate parent, which for a nested closure is the outer closure rather than the enclosing function, so rustc checked the outer closure as if it were the root, left out the inner one, and then found no result for it. The panic aborted the analysis of every body in the crate. The pin names tag `v0.4.0-vscode.10`, commit `b511bb9`, which adds one commit to `vscode-v0.4.0`:
+
+| Commit | Change | Offered upstream |
+| --- | --- | --- |
+| `b511bb9` | Before fetching a closure's borrowck facts, Aquascope fetches those of its typeck root, whose borrow-check stores the facts of every body nested in it | Not yet; branch `nested-closure-borrowck` in the fork, [phamquy/aquascope#1](https://github.com/phamquy/aquascope/pull/1) |
+
+Unlike the stepper panic that `v0.4.0-vscode.9` catches, this panic happens inside a rustc query, where unwinding could leave the compiler's state inconsistent, so the fork prevents it instead of catching it. The proper fix belongs in rustc_utils, which should borrow-check a closure's typeck root rather than its immediate parent; the fork's change can go once rustc_utils has it. `tests/analysis.rs` gains a test with a closure inside a closure, which fails without the change with the reported panic. On `vscode-v0.4.0`, `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front` pass.
