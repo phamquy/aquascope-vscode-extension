@@ -2,7 +2,7 @@
   "name": "aquascope-vscode-extension",
   "displayName": "Aquascope",
   "description": "VS Code extension for Aquascope.",
-  "version": "0.0.9",
+  "version": "1.0.0",
   "publisher": "psyquy",
   "license": "MIT",
   "icon": "media/icon.png",
