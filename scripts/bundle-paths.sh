@@ -8,6 +8,10 @@ TRIM=(
   'etc'
   'libexec'
   'bin/rustdoc'
+  'bin/rustdoc.exe'
+  'bin/rust-windbg.cmd'
+  'bin/*.pdb'
+  "lib/rustlib/$host/lib/*.pdb"
   'bin/rust-gdb'
   'bin/rust-gdbgui'
   'bin/rust-lldb'
