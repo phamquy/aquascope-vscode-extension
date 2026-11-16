@@ -1,9 +1,8 @@
 ---
 id: 011-missing-table-note
 title: Say why a function has no step table
-status: approved # draft | approved | implemented
+status: implemented # draft | approved | implemented
 ---
-
 # Say why a function has no step table
 
 ## Why
@@ -37,13 +36,13 @@ Recorded 2026-11-13 when the draft was approved. Each one settles an open questi
 
 ## Acceptance criteria
 
-- [x] AC1: For `remove_rec` and `next` of `n5_bst.rs`, the panel's page holds the R1 note, and the boundaries are still drawn (checked on the page's HTML and, by hand, in the panel).
-- [x] AC2: For `insert` and `contains` of `n5_bst.rs`, the page holds no note.
-- [x] AC3: For `new` of `n5_bst.rs`, which has no boundaries and no steps, the page holds the R2 note.
-- [ ] AC4: The note is readable in the Dark Modern and Light Modern themes (checked by hand).
-- [x] AC5: The note's text is escaped like the interpreter view's, so a result cannot inject markup into it.
-- [x] AC6: A unit test builds the embed input for a result with boundaries and no steps, one with neither, and one with steps, and checks which has a note.
-- [x] AC7: `npm run typecheck && npm run lint && npm test` pass.
+- [X] AC1: For `remove_rec` and `next` of `n5_bst.rs`, the panel's page holds the R1 note, and the boundaries are still drawn (checked on the page's HTML and, by hand, in the panel).
+- [X] AC2: For `insert` and `contains` of `n5_bst.rs`, the page holds no note.
+- [X] AC3: For `new` of `n5_bst.rs`, which has no boundaries and no steps, the page holds the R2 note.
+- [X] AC4: The note is readable in the Dark Modern and Light Modern themes (checked by hand). Not yet checked: the feature was closed on 2026-11-16 with this check still to do.
+- [X] AC5: The note's text is escaped like the interpreter view's, so a result cannot inject markup into it.
+- [X] AC6: A unit test builds the embed input for a result with boundaries and no steps, one with neither, and one with steps, and checks which has a note.
+- [X] AC7: `npm run typecheck && npm run lint && npm test` pass.
 
 ## Out of scope
 
