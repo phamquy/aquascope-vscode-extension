@@ -1,75 +1,126 @@
 #!/usr/bin/env node
-// Checks a platform VSIX against feature 005's AC1 to AC3; run by scripts/package-platform.sh.
+// Checks a platform VSIX against feature 005's AC1 to AC3 and feature 012's AC6; run by
+// scripts/package-platform.sh.
 //
 //   node scripts/check-vsix.mjs <vsix> <host triple> <rust toolchain> <bundle folder>
 //
-// AC1: the manifest targets darwin-arm64; the binaries, cargo, rustc and the compiler library are present
-// and executable; every other toolchain file is in the rustc, cargo or rust-std manifest and not trimmed,
-// or is a kept licence file. AC2: at most 150 MB. AC3: the licence and notice files are present, the
-// crate notices being the ones generated for this bundle. It also checks that nothing from build/ leaked
-// into the package, and that no file holds the build machine's home path (R10, AC8). Exits 1 and lists
-// every failed check.
+// AC1: the manifest targets the platform of the host triple (darwin-arm64 or win32-x64); the binaries,
+// cargo, rustc and the compiler library are present (and executable on darwin); every other toolchain
+// file is in the rustc, cargo or rust-std manifest and not trimmed, or is a kept licence file. AC2: at most
+// 200 MB. AC3: the licence and notice files are present, the crate notices being the ones generated for
+// this bundle. It also checks that nothing from build/ leaked into the package, and that no file holds the
+// build machine's home path (R10, AC8). Exits 1 and lists every failed check.
+//
+// The zip is read here, not by zipinfo and unzip, and the trim and keep lists are read from
+// scripts/bundle-paths.sh here, not by running Bash, so the check runs wherever Node does. Two environment
+// variables let the tests use a small synthetic package: AQUASCOPE_CHECK_SYSROOT names a folder holding
+// lib/rustlib/manifest-* in place of the rustup toolchain's, and AQUASCOPE_CHECK_MAX_MB replaces the size cap.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { inflateRawSync } from 'node:zlib';
 
 const [vsix, host, toolchain, bundle] = process.argv.slice(2);
 if (!vsix || !host || !toolchain || !bundle) {
   console.error('usage: check-vsix.mjs <vsix> <host triple> <rust toolchain> <bundle folder>');
   process.exit(2);
 }
-const root = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 // ADR 0003: about 185 MB with Miri's standard library; the cap still catches an accidental doubling.
-const MAX_MB = 200;
+// The Windows bundle measured 158 MiB zipped (feature 012, T-066), within the same cap.
+const MAX_MB = Number(process.env.AQUASCOPE_CHECK_MAX_MB ?? 200);
 const MAX_BYTES = MAX_MB * 1024 * 1024;
 const TOOLCHAIN = 'extension/aquascope/toolchain/';
 const failures = [];
 const check = (ok, message) => ok || failures.push(message);
 
-// Every entry with its Unix permissions, from `zipinfo` (one line per file).
+const PLATFORMS = {
+  'aarch64-apple-darwin': { target: 'darwin-arm64', exe: '', driverLib: /^lib\/librustc_driver-.*\.dylib$/, driverLibName: 'lib/librustc_driver-*.dylib', unixModes: true },
+  'x86_64-pc-windows-msvc': { target: 'win32-x64', exe: '.exe', driverLib: /^bin\/rustc_driver-.*\.dll$/, driverLibName: 'bin/rustc_driver-*.dll', unixModes: false },
+};
+const platform = PLATFORMS[host];
+if (!platform) {
+  console.error(`check-vsix: no checks for the host ${host}; known hosts: ${Object.keys(PLATFORMS).join(', ')}`);
+  process.exit(2);
+}
+
+// The zip's central directory: each entry's name, Unix mode (when it was made on Unix) and where its data is.
+const zip = readFileSync(vsix);
 const entries = new Map();
-for (const line of execFileSync('zipinfo', [vsix], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\n')) {
-  const m = /^([-dl][rwxsStT-]{9})\s+\S+\s+\S+\s+\d+\s+\S+\s+\S+\s+\S+\s+\S+\s+(.+)$/.exec(line);
-  if (m) entries.set(m[2], m[1]);
+const eocd = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+if (eocd >= 0) {
+  let p = zip.readUInt32LE(eocd + 16);
+  for (let n = zip.readUInt16LE(eocd + 10); n > 0 && zip.readUInt32LE(p) === 0x02014b50; n--) {
+    const madeByUnix = zip.readUInt16LE(p + 4) >> 8 === 3;
+    const nameLength = zip.readUInt16LE(p + 28);
+    const extraLength = zip.readUInt16LE(p + 30);
+    const commentLength = zip.readUInt16LE(p + 32);
+    entries.set(zip.toString('utf8', p + 46, p + 46 + nameLength), {
+      method: zip.readUInt16LE(p + 10),
+      compressedSize: zip.readUInt32LE(p + 20),
+      mode: madeByUnix ? zip.readUInt32LE(p + 38) >>> 16 : undefined,
+      header: zip.readUInt32LE(p + 42),
+    });
+    p += 46 + nameLength + extraLength + commentLength;
+  }
 }
 check(entries.size > 0, 'could not list the VSIX');
+const names = [...entries.keys()];
+const read = (name) => {
+  const e = entries.get(name);
+  const start = e.header + 30 + zip.readUInt16LE(e.header + 26) + zip.readUInt16LE(e.header + 28);
+  const data = zip.subarray(start, start + e.compressedSize);
+  return e.method === 0 ? data : inflateRawSync(data);
+};
 
-// AC1: target platform and the files a run needs, executable.
-const manifest = execFileSync('unzip', ['-p', vsix, 'extension.vsixmanifest'], { encoding: 'utf8' });
-check(/TargetPlatform="darwin-arm64"/.test(manifest), 'the manifest does not target darwin-arm64');
-const driverLib = [...entries.keys()].find((e) => /^extension\/aquascope\/toolchain\/lib\/librustc_driver-.*\.dylib$/.test(e));
-check(driverLib !== undefined, 'missing extension/aquascope/toolchain/lib/librustc_driver-*.dylib');
-for (const file of ['extension/aquascope/bin/cargo-aquascope', 'extension/aquascope/bin/aquascope-driver', `${TOOLCHAIN}bin/cargo`, `${TOOLCHAIN}bin/rustc`, driverLib]) {
+// AC1: target platform and the files a run needs (executable, on darwin).
+const manifest = entries.has('extension.vsixmanifest') ? read('extension.vsixmanifest').toString('utf8') : '';
+check(manifest.includes(`TargetPlatform="${platform.target}"`), `the manifest does not target ${platform.target}`);
+const driverLib = names.find((e) => e.startsWith(TOOLCHAIN) && platform.driverLib.test(e.slice(TOOLCHAIN.length)));
+check(driverLib !== undefined, `missing ${TOOLCHAIN}${platform.driverLibName}`);
+const required = ['extension/aquascope/bin/cargo-aquascope', 'extension/aquascope/bin/aquascope-driver', `${TOOLCHAIN}bin/cargo`, `${TOOLCHAIN}bin/rustc`].map((f) => f + platform.exe);
+// The standard library's own DLL sits beside the compiler's on Windows, and rustc.exe will not start without it.
+const stdLib = platform.target === 'win32-x64' ? names.find((e) => /^extension\/aquascope\/toolchain\/bin\/std-.*\.dll$/.test(e)) : undefined;
+if (platform.target === 'win32-x64') check(stdLib !== undefined, `missing ${TOOLCHAIN}bin/std-*.dll`);
+for (const file of [...required, driverLib, stdLib]) {
   if (!file) continue;
-  const mode = entries.get(file);
-  check(mode !== undefined, `missing ${file}`);
-  if (mode && !file.endsWith('.dylib')) check(mode[3] === 'x', `${file} is not executable (${mode})`);
+  check(entries.has(file), `missing ${file}`);
+}
+if (platform.unixModes) {
+  for (const file of required) {
+    const mode = entries.get(file)?.mode;
+    if (mode !== undefined) check((mode & 0o100) !== 0, `${file} is not executable`);
+  }
 }
 
 // Feature 007: the standard library built for Miri, without cargo's dep-info files (ADR 0003).
 const MIRI_LIB = `extension/aquascope/miri-sysroot/lib/rustlib/${host}/lib/`;
 for (const crate of ['core', 'alloc', 'std']) {
-  check([...entries.keys()].some((e) => e.startsWith(`${MIRI_LIB}lib${crate}-`) && e.endsWith('.rlib')), `missing ${MIRI_LIB}lib${crate}-*.rlib`);
+  check(names.some((e) => e.startsWith(`${MIRI_LIB}lib${crate}-`) && e.endsWith('.rlib')), `missing ${MIRI_LIB}lib${crate}-*.rlib`);
 }
-check(![...entries.keys()].some((e) => e.startsWith('extension/aquascope/miri-sysroot/') && e.endsWith('.d')), 'the Miri standard library still holds .d files');
+check(!names.some((e) => e.startsWith('extension/aquascope/miri-sysroot/') && e.endsWith('.d')), 'the Miri standard library still holds .d files');
 
 // The trim and keep lists, read from the shell file the packaging script uses.
-const lists = execFileSync('bash', ['-c', `host=${host}; source scripts/bundle-paths.sh; printf '%s\\n' "\${TRIM[@]}"; echo ---; printf '%s\\n' "\${KEEP[@]}"`], {
-  cwd: root,
-  encoding: 'utf8',
-}).trim();
-const [trim, keep] = lists.split('\n---\n').map((block) => block.split('\n'));
+const shell = readFileSync(path.join(root, 'scripts/bundle-paths.sh'), 'utf8');
+const list = (name) => {
+  const body = new RegExp(`^${name}=\\(\\r?\\n([^)]*)\\)`, 'm').exec(shell)?.[1] ?? '';
+  return [...body.matchAll(/^\s*(?:'([^']*)'|"([^"]*)")/gm)].map((m) => (m[1] ?? m[2]).replaceAll('$host', host));
+};
+const trim = list('TRIM');
+const keep = list('KEEP');
+check(trim.length > 0 && keep.length > 0, 'could not read the trim and keep lists from scripts/bundle-paths.sh');
 const glob = (pattern) => new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}(/.*)?$`);
 const trimmed = trim.map(glob);
 const kept = keep.map(glob);
 
 // The files the rustc, cargo and rust-std components install, from rustup's manifests.
-const sysroot = execFileSync('rustup', ['run', toolchain, 'rustc', '--print', 'sysroot'], { encoding: 'utf8' }).trim();
+const sysroot = process.env.AQUASCOPE_CHECK_SYSROOT ?? execFileSync('rustup', ['run', toolchain, 'rustc', '--print', 'sysroot'], { encoding: 'utf8' }).trim();
 const manifestFiles = new Set();
 const manifestDirs = [];
 for (const component of ['rustc', 'cargo', 'rust-std']) {
-  for (const line of readFileSync(path.join(sysroot, 'lib/rustlib', `manifest-${component}-${host}`), 'utf8').split('\n')) {
+  for (const line of readFileSync(path.join(sysroot, 'lib/rustlib', `manifest-${component}-${host}`), 'utf8').split(/\r?\n/)) {
     const [kind, ...rest] = line.split(':');
     if (kind === 'file') manifestFiles.add(rest.join(':'));
     if (kind === 'dir') manifestDirs.push(rest.join(':') + '/');
@@ -78,7 +129,7 @@ for (const component of ['rustc', 'cargo', 'rust-std']) {
 const inManifest = (rel) => manifestFiles.has(rel) || manifestDirs.some((d) => rel.startsWith(d));
 
 let toolchainFiles = 0;
-for (const entry of entries.keys()) {
+for (const entry of names) {
   if (!entry.startsWith(TOOLCHAIN) || entry.endsWith('/')) continue;
   toolchainFiles += 1;
   const rel = entry.slice(TOOLCHAIN.length);
@@ -98,8 +149,8 @@ for (const file of [
 ]) {
   check(entries.has(file), `missing ${file}`);
 }
-check([...entries.keys()].some((e) => e.startsWith(`${TOOLCHAIN}share/doc/rust/licenses/`)), `missing ${TOOLCHAIN}share/doc/rust/licenses/`);
-const notices = execFileSync('unzip', ['-p', vsix, 'extension/aquascope/THIRD-PARTY-NOTICES'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+check(names.some((e) => e.startsWith(`${TOOLCHAIN}share/doc/rust/licenses/`)), `missing ${TOOLCHAIN}share/doc/rust/licenses/`);
+const notices = entries.has('extension/aquascope/THIRD-PARTY-NOTICES') ? read('extension/aquascope/THIRD-PARTY-NOTICES').toString('utf8') : undefined;
 let generated;
 try {
   generated = readFileSync(path.join(bundle, 'THIRD-PARTY-NOTICES'), 'utf8');
@@ -110,28 +161,24 @@ check(generated !== undefined, `no crate notices in ${bundle} to compare with`);
 check(generated === undefined || notices === generated, 'the crate notices differ from the ones generated for this bundle');
 
 // Nothing from the build folder or the spikes, and AC2's size.
-check(![...entries.keys()].some((e) => /^extension\/(build|spikes|scripts)\//.test(e)), 'the package contains build/, spikes/ or scripts/');
+check(!names.some((e) => /^extension\/(build|spikes|scripts)\//.test(e)), 'the package contains build/, spikes/ or scripts/');
 const bytes = statSync(vsix).size;
 check(bytes <= MAX_BYTES, `the VSIX is ${(bytes / 1048576).toFixed(1)} MB, over ${MAX_MB} MB`);
 
-// R10, AC8: no file holds the build machine's home path, which rustc records in source paths.
-const home = Buffer.from(os.homedir());
-const unpacked = mkdtempSync(path.join(os.tmpdir(), 'check-vsix-'));
-try {
-  execFileSync('unzip', ['-q', vsix, '-d', unpacked]);
-  const withHome = [];
-  for (const entry of readdirSync(unpacked, { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    const file = path.join(entry.parentPath, entry.name);
-    if (readFileSync(file).includes(home)) withHome.push(path.relative(unpacked, file));
-  }
-  check(withHome.length === 0, `${withHome.length} file(s) hold the home path ${home}: ${withHome.slice(0, 5).join(', ')}${withHome.length > 5 ? ', …' : ''}`);
-} finally {
-  rmSync(unpacked, { recursive: true, force: true });
+// R10, AC8: no file holds the build machine's home path, which rustc records in source paths. On Windows
+// it is recorded with backslashes, possibly doubled in escaped text, or with slashes.
+const home = os.homedir();
+const homes = [...new Set([home, home.replaceAll('\\', '/'), home.replaceAll('\\', '\\\\')])].map((h) => Buffer.from(h));
+const withHome = [];
+for (const entry of names) {
+  if (entry.endsWith('/')) continue;
+  const data = read(entry);
+  if (homes.some((h) => data.includes(h))) withHome.push(entry);
 }
+check(withHome.length === 0, `${withHome.length} file(s) hold the home path ${home}: ${withHome.slice(0, 5).join(', ')}${withHome.length > 5 ? ', …' : ''}`);
 
 if (failures.length > 0) {
   console.error(`check-vsix: ${failures.length} problem(s) in ${path.basename(vsix)}:\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`check-vsix: ok: darwin-arm64, ${entries.size} entries, ${toolchainFiles} toolchain files, ${(bytes / 1048576).toFixed(1)} MB`);
+console.log(`check-vsix: ok: ${platform.target}, ${entries.size} entries, ${toolchainFiles} toolchain files, ${(bytes / 1048576).toFixed(1)} MB`);
