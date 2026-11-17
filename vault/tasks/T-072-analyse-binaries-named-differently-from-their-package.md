@@ -1,7 +1,7 @@
 ---
 id: T-072
 title: "Analyse binaries named differently from their package"
-status: review
+status: done
 priority: medium
 feature: "008-whole-crate-analysis"
 created: 2026-11-17
