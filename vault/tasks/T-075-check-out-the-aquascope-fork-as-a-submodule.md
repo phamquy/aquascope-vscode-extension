@@ -1,7 +1,7 @@
 ---
 id: T-075
 title: "Check out the Aquascope fork as a submodule"
-status: review
+status: done
 priority: medium
 feature: "005-package-per-platform-vsix"
 created: 2026-11-17
