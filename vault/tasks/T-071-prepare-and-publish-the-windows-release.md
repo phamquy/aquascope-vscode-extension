@@ -1,7 +1,7 @@
 ---
 id: T-071
 title: "Prepare and publish the Windows release"
-status: todo
+status: doing
 priority: medium
 feature: "012-windows-support"
 created: 2026-11-16
