@@ -60,7 +60,7 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 - Pinned to Aquascope v0.4.0 and `nightly-2026-05-01` (from that tag's `rust-toolchain.toml`), built from a fork that adds three changes to v0.4.0 until upstream releases them (ADR 0004). Building `cargo-aquascope` needs that nightly with `rustc-dev`; running it needs only the nightly's rustc, cargo and rust-std (spike 002).
 - `cargo-aquascope` is not on crates.io; the packaging script builds it from the git tag on a machine of each platform (feature 005), and CI is to run that script once more platforms are packaged.
 - VS Code 1.90 or newer.
-- Platforms in order: darwin-arm64 (verified), linux-x64, win32-x64, then linux-arm64 and darwin-x64. Only darwin-arm64 has been run.
+- Platforms in order: darwin-arm64 (verified), linux-x64, win32-x64, then linux-arm64 and darwin-x64. Only darwin-arm64 and win32-x64 have been run; win32-x64 (feature 012) was verified on Windows 11 x64 with the `x86_64-pc-windows-msvc` host, and Windows 10 is untested.
 - Zero install: the extension bundles `cargo-aquascope` and a trimmed nightly toolchain, one VSIX per platform (about 120 MB on darwin-arm64). Users need no rustup and nothing on their `PATH`.
 - Exceptions to zero install: analysing a file with its crate (feature 008) needs a system C linker when the crate or its dependencies have build scripts or proc macros, and the dependencies already in the user's cargo cache, since the extension never downloads; `cargo fetch` in the project fills the cache.
 
@@ -93,7 +93,7 @@ Editor command -> Extension host -> cargo aquascope (child process) -> JSON -> W
 - Licence is MIT, so bundling its frontend is permitted with attribution. The built frontend (`embed.iife.js`, `style.css`) can be vendored from the `mdbook-aquascope` crate; no frontend build is needed.
 - The extension must upgrade the Aquascope tag and the nightly together; each upgrade means rebuilding every platform package.
 - Marketplace package size limit is undocumented and the package is about 120 MB per platform, about 185 MB once feature 007 ships Miri's standard library (ADR 0003). Must be checked with a test publish or the first publish before release; the fallbacks are downloading the toolchain, or the Miri library, on first run.
-- Windows and Linux are unverified; Aquascope upstream only tests Linux. Flowistry (same framework) ships Linux, macOS and Windows x86_64.
+- Linux is unverified; Aquascope upstream only tests Linux. Flowistry (same framework) ships Linux, macOS and Windows x86_64. Windows x64 was verified in feature 012: the package is about 160 MB (505 MB unpacked), needs `VCRUNTIME140.dll` and, for crates with build scripts or proc macros, Visual Studio's `link.exe`, which cannot write paths over 260 characters.
 - macOS Gatekeeper may block the unsigned bundled binaries after install. Checked for darwin-arm64 in feature 005: a browser-downloaded VSIX installed on an account without rustup, offline, ran with no security dialog. Other platforms are untested.
 - Aquascope's output order is not stable between runs, so tests and rendering must not depend on it.
 - Answered by spike 002 ([findings](../docs/spikes/002-toolchain-bundling.md)): bundling works without `rustc-dev`, Miri, `rust-src` or rustup; the extension must set `PATH` and the library path.
