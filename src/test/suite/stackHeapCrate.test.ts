@@ -2,7 +2,8 @@
 // Miri-built library, seen through the command's result and the panel's reports. The binary and the
 // arguments are given through the command's options, as the dialogs' choices are tested in program.test.ts.
 // T-052 added AC9 for a file alone; T-054 AC1, AC2, AC4, AC5 and AC8; T-055 AC3, AC7 and D6's offer; T-056
-// AC9 for a file of a package. AC6 is feature 007's suites, unchanged.
+// AC9 for a file of a package; T-072 a binary named differently from its package. AC6 is feature 007's
+// suites, unchanged.
 import * as assert from 'assert';
 import { readFileSync } from 'fs';
 import * as vscode from 'vscode';
@@ -98,6 +99,21 @@ suite('feature 009 acceptance criteria, end to end', function () {
     assert.deepStrictEqual(result.trace.result, { type: 'Success' });
     assert.deepStrictEqual([...currentFiles(result)], ['src/main.rs']);
     assert.strictEqual((await drawn()).steps, result.trace.steps.length);
+  });
+
+  test('a binary named differently from its package, with no library, is run and drawn, as in rustlings and src/bin/ (T-072, #81)', async () => {
+    const exercise = traced(await runIn(fixtureProject('named-bins', 'exercises', 'string_kinds.rs'), { arguments: [] }));
+    assert.strictEqual(exercise.file, 'exercises/string_kinds.rs');
+    assert.deepStrictEqual(exercise.trace.result, { type: 'Success' });
+    assert.deepStrictEqual([...currentFiles(exercise)], ['exercises/string_kinds.rs']);
+    const called = new Set(exercise.trace.steps.flatMap((s) => s.stack.frames.map((f) => f.name)));
+    assert.deepStrictEqual([...called].sort(), ['main', 'string', 'string_slice']);
+    assert.strictEqual((await drawn()).steps, exercise.trace.steps.length);
+
+    const tool = traced(await runIn(fixtureProject('named-bins', 'src', 'bin', 'tool.rs'), { arguments: [] }));
+    assert.deepStrictEqual(tool.trace.result, { type: 'Success' });
+    assert.deepStrictEqual([...currentFiles(tool)], ['src/bin/tool.rs']);
+    assert.strictEqual((await drawn()).steps, tool.trace.steps.length);
   });
 
   test('AC5: an unsaved edit in config.rs changes the trace, and the file on disk is unchanged', async () => {
