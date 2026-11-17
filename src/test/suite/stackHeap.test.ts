@@ -1,6 +1,7 @@
 // Feature 007 end to end: Show Stack and Heap against a bundle with the Miri-built library, seen through the
 // command's result, the panel's reports and the output channel, one test per automated criterion (AC8).
 import * as assert from 'assert';
+import { readFileSync } from 'fs';
 import * as vscode from 'vscode';
 import type { MValue } from '../../analysis/bindings/MValue';
 import type { StackHeapResult } from '../../analysis/types';
@@ -159,5 +160,18 @@ suite('feature 007 acceptance criteria, end to end', function () {
       [JSON.stringify([{ type: 'Subslice', value: [2, 12] }]), '  hello the… '],
       [JSON.stringify([{ type: 'Subslice', value: [1, 2] }]), 'abc'],
     ]);
+  });
+
+  test('issue #88: a program with a reference into an enum\'s payload runs to its end and every step is drawn', async () => {
+    await open('l3_option_ref.rs');
+    const { trace } = traced(await run());
+    assert.deepStrictEqual(trace.result, { type: 'Success' });
+    // Past the match, whose `p` points at the Point after the Option's tag (the fork's enum-payload snapshot has its
+    // path), to the last println!, where Point's derived Debug runs.
+    const lastPrintln = readFileSync(fixture('l3_option_ref.rs').fsPath, 'utf8').split('\n').findIndex((l) => l.includes('{optional_point:?}'));
+    assert.ok(trace.steps.some((s) => s.stack.frames[0].location.start.line === lastPrintln), 'a step at the last println!');
+    assert.ok(trace.steps.some((s) => s.stack.frames.some((f) => f.name === '<Point as std::fmt::Debug>::fmt')), "Point's Debug runs");
+    const report = await drawn();
+    assert.deepStrictEqual([report.steps, report.markers], [trace.steps.length, trace.steps.length]);
   });
 });
