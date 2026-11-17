@@ -1,7 +1,12 @@
 // Turns the interpreter's trace into what Aquascope's embed draws (feature 007, R4, R8, D4 and D6).
 import { convertColumnsToUtf16 } from '../analysis/positions';
 import type { CharRange, InterpreterOutput, MTrace } from '../analysis/types';
+import type { Abbreviated } from '../analysis/bindings/Abbreviated';
+import type { MMemorySegment } from '../analysis/bindings/MMemorySegment';
+import type { MPath } from '../analysis/bindings/MPath';
+import type { MStep } from '../analysis/bindings/MStep';
 import type { MUndefinedBehavior } from '../analysis/bindings/MUndefinedBehavior';
+import type { MValue } from '../analysis/bindings/MValue';
 
 /** The most steps the panel draws (D6, revised): the fixtures need at most 11. */
 export const STEP_LIMIT = 100;
@@ -28,6 +33,7 @@ export interface TraceInput {
 export function traceInput(trace: MTrace<CharRange>, source: string, limit = STEP_LIMIT, file?: string): TraceInput {
   const shown = structuredClone(trace);
   if (file !== undefined) placeOtherFiles(shown, file);
+  for (const step of shown.steps) keepPointersDrawable(step);
   convertColumnsToUtf16(shown, source);
   const notes: string[] = [];
   const total = shown.steps.length;
@@ -63,6 +69,59 @@ function placeOtherFiles(trace: MTrace<CharRange>, file: string): void {
       frame.location = start(frame.location);
     }
   }
+}
+
+/**
+ * Points every pointer of `step` at something the renderer draws (issue #83). The renderer draws an array of
+ * more than 12 elements as its first 11 and its last, which it labels index 100, and when a pointer's element,
+ * or the last element of its slice, is not drawn it throws, which removes every diagram of the trace. Such a
+ * pointer instead points at its slice's first element, without the slice's extent, when that is drawn, and
+ * otherwise at the array as a whole.
+ */
+function keepPointersDrawable(step: MStep<CharRange>): void {
+  const valueAt = (segment: MMemorySegment): MValue | undefined =>
+    segment.type === 'Heap'
+      ? step.heap.locations[segment.value.index]
+      : step.stack.frames[segment.value.frame]?.locals.find((l) => l.name === segment.value.local)?.value;
+  const visit = (value: MValue): void => {
+    if (value.type === 'Pointer') keepDrawable(value.value.path, valueAt(value.value.path.segment));
+    else if (value.type === 'Adt') value.value.fields.forEach(([, field]) => visit(field));
+    else if (value.type === 'Tuple') value.value.forEach(visit);
+    else if (value.type === 'Array') elements(value.value).forEach(visit);
+  };
+  for (const frame of step.stack.frames) for (const local of frame.locals) visit(local.value);
+  step.heap.locations.forEach(visit);
+}
+
+/** Cuts `path` back to the parts the renderer draws inside `value`, the value at the path's segment. */
+function keepDrawable(path: MPath, value: MValue | undefined): void {
+  let at = value;
+  for (let i = 0; i < path.parts.length && at !== undefined; i++) {
+    const part = path.parts[i];
+    if (part.type === 'Field') {
+      at = at.type === 'Adt' ? at.value.fields[part.value]?.[1] : at.type === 'Tuple' ? at.value[part.value] : undefined;
+      continue;
+    }
+    if (at.type !== 'Array') return;
+    const [first, last] = part.type === 'Index' ? [part.value, part.value] : part.value;
+    if (drawn(at.value, first) && drawn(at.value, last)) {
+      at = at.value.type === 'All' || first < at.value.value[0].length ? elements(at.value)[first] : at.value.value[1];
+      continue;
+    }
+    path.parts.length = i;
+    if (drawn(at.value, first)) path.parts.push({ type: 'Index', value: first });
+    return;
+  }
+}
+
+/** Whether the renderer draws element `index` of an array: all of them, or the first ones and one labelled 100. */
+function drawn(array: Abbreviated<MValue>, index: number): boolean {
+  return array.type === 'All' ? index < array.value.length : index < array.value[0].length || index === 100;
+}
+
+/** The elements an array holds, the last of an abbreviated one after its first ones. */
+function elements(array: Abbreviated<MValue>): MValue[] {
+  return array.type === 'All' ? array.value : [...array.value[0], array.value[1]];
 }
 
 /** Miri's undefined behaviour, in words. */
