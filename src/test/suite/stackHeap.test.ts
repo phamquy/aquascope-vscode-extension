@@ -2,6 +2,7 @@
 // command's result, the panel's reports and the output channel, one test per automated criterion (AC8).
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import type { MValue } from '../../analysis/bindings/MValue';
 import type { StackHeapResult } from '../../analysis/types';
 import type { AquascopeApi } from '../../extension';
 import type { PanelReport } from '../../visualization/panel';
@@ -131,5 +132,32 @@ suite('feature 007 acceptance criteria, end to end', function () {
     const report = await drawn();
     assert.deepStrictEqual([report.steps, report.markers, report.failed], [4, 4, 1]);
     assert.match(report.notes[0] ?? '', /used after the memory it points to was freed/);
+  });
+
+  test('issue #83: slices that start inside their text point into the whole text, and every diagram stays drawn', async () => {
+    await open('l2_slice_inside.rs');
+    const { trace } = traced(await run());
+    const report = await drawn();
+    assert.deepStrictEqual([report.steps, report.markers], [trace.steps.length, trace.steps.length]);
+
+    // The first step in `show` for each call: its `s` and the text it points into.
+    const inShow = trace.steps.filter((step) => step.stack.frames.at(-1)?.name === 'show');
+    const text = (value: MValue): string => {
+      assert.strictEqual(value.type, 'Array');
+      const array = (value as Extract<MValue, { type: 'Array' }>).value;
+      const chars = array.type === 'All' ? array.value : [...array.value[0], { type: 'Char', value: 0x2026 }, array.value[1]];
+      return chars.map((c) => String.fromCodePoint(Number((c as Extract<MValue, { type: 'Char' }>).value))).join('');
+    };
+    const slices = [...new Map(inShow.map((step) => {
+      const s = step.stack.frames.at(-1)?.locals.find((l) => l.name === 's')?.value;
+      assert.ok(s?.type === 'Pointer' && s.value.path.segment.type === 'Heap', JSON.stringify(s));
+      const heap = step.heap.locations[s.value.path.segment.value.index];
+      return [JSON.stringify(s.value.path.parts), text(heap)];
+    }))];
+    // The literal is read whole and drawn as its first 11 characters and its last; the String as far as the slice ends.
+    assert.deepStrictEqual(slices, [
+      [JSON.stringify([{ type: 'Subslice', value: [2, 12] }]), '  hello the… '],
+      [JSON.stringify([{ type: 'Subslice', value: [1, 2] }]), 'abc'],
+    ]);
   });
 });

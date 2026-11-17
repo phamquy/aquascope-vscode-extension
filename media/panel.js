@@ -43,7 +43,9 @@
       markers: document.querySelectorAll('.cm-editor .step-marker').length,
       failed: document.querySelectorAll('.step-header .step-marker.fail').length,
     });
-    reportWhenDrawn(counts, (now) => now.steps === steps && now.markers === steps, () => ({ type: 'trace', notes }));
+    // The embed draws the arrows of pointers once the diagrams are on the page, and an error there removes
+    // every diagram (issue #83), so the report waits for the arrows and counts the diagrams again.
+    reportWhenDrawn(counts, (now) => now.steps === steps && now.markers === steps, () => ({ type: 'trace', notes }), 300);
     return;
   }
 
@@ -67,18 +69,23 @@
 
   // The embed draws on load, and React fills in the widgets shortly after, so report as soon as the page
   // holds what it should. Timers are throttled to about one a second while the window is in the
-  // background, so the timer only bounds a page that never matches, and then reports what it has.
-  function reportWhenDrawn(counts, drawn, fields) {
+  // background, so the timer only bounds a page that never matches, and then reports what it has. With
+  // `settleMs`, the report is sent that long after the page first matches, with the counts it has then.
+  function reportWhenDrawn(counts, drawn, fields, settleMs = 0) {
     let sent = false;
     let fallback;
+    let settling;
     const observer = new MutationObserver(() => {
-      if (drawn(counts())) send();
+      if (!drawn(counts())) return;
+      if (settleMs === 0) send();
+      else settling ??= setTimeout(send, settleMs);
     });
     const send = () => {
       if (sent) return;
       sent = true;
       observer.disconnect();
       clearTimeout(fallback);
+      clearTimeout(settling);
       vscode.postMessage({ ...fields(), renderId, code, ...counts(), theme: theme(), problems });
     };
     observer.observe(document.body, { childList: true, subtree: true });

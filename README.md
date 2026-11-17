@@ -63,6 +63,7 @@ The program runs inside Miri, Rust's interpreter for checking unsafe code, which
 - Code with compile errors cannot run at all, including code that fails borrow checking, which the permissions view can still show.
 - The steps of functions in other crates, the crates.io dependencies and the other members of a workspace, are not drawn: a call into them passes in one step, as a call into the standard library does. A package's own library is drawn because its binary is compiled together with it as one crate; a binary whose modules refer to each other through `crate::` paths cannot be compiled that way, so it runs alone, and only its own files have steps.
 - A string literal's text is drawn in the heap, the only place the panel has for memory outside the stack, although a compiled program keeps it with its code.
+- A text or array of more than 12 elements is drawn as its first 11 and its last. A slice that ends in the part left out, such as a line of a longer text, is drawn as an arrow to its first element, or to the whole text when that is left out too.
 - The first run on a project builds the whole program for the interpreter, with no time limit. Later runs of a program like minigrep take about ten seconds, since Miri interprets every function, the standard library's included.
 
 ## Settings
