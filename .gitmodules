@@ -1,0 +1,4 @@
+[submodule "vendor/aquascope"]
+	path = vendor/aquascope
+	url = https://github.com/phamquy/aquascope.git
+	branch = vscode-v0.4.0

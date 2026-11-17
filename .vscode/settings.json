@@ -1,4 +1,8 @@
 {
     "js/ts.experimental.useTsgo": false,
-    "obsidianPreview.vaultRoot": "vault"
+    "obsidianPreview.vaultRoot": "vault",
+    // The Aquascope fork's build folder, which `cargo test` in vendor/aquascope fills with several GB.
+    "files.watcherExclude": {
+        "**/vendor/aquascope/target/**": true
+    }
 }

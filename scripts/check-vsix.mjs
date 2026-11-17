@@ -160,8 +160,8 @@ try {
 check(generated !== undefined, `no crate notices in ${bundle} to compare with`);
 check(generated === undefined || notices === generated, 'the crate notices differ from the ones generated for this bundle');
 
-// Nothing from the build folder or the spikes, and AC2's size.
-check(!names.some((e) => /^extension\/(build|spikes|scripts)\//.test(e)), 'the package contains build/, spikes/ or scripts/');
+// Nothing from the build folder, the spikes or the Aquascope submodule, and AC2's size.
+check(!names.some((e) => /^extension\/(build|spikes|scripts|vendor)\//.test(e)), 'the package contains build/, spikes/, scripts/ or vendor/');
 const bytes = statSync(vsix).size;
 check(bytes <= MAX_BYTES, `the VSIX is ${(bytes / 1048576).toFixed(1)} MB, over ${MAX_MB} MB`);
 

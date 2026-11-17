@@ -20,7 +20,7 @@ import tempfile
 import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHECKOUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'spikes/002-toolchain-bundling/work/src/aquascope')
+CHECKOUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'vendor/aquascope')
 FRONTEND = os.path.join(CHECKOUT, 'frontend')
 OUT = os.path.join(ROOT, 'media/aquascope-embed/THIRD-PARTY-NOTICES')
 

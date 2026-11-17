@@ -5,16 +5,28 @@ This file is for working on the extension; the [README](README.md) describes it 
 ## Getting started
 
 ```sh
+git clone --recursive https://github.com/phamquy/aquascope-vscode-extension.git
 npm install
 npm run compile
 # press F5 in VS Code
 ```
 
+The Aquascope fork the extension is built from is the submodule `vendor/aquascope` (ADR 0005). In a clone made without `--recursive`, run `git submodule update --init` to check it out.
+
 Before marking a task done, run `npm run typecheck && npm run lint && npm test`.
 
 ### A toolchain bundle for development
 
-For development without a package, build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. The first run also builds the standard library that Aquascope's interpreter needs, which takes about 15 seconds and needs rustup's pinned nightly with the `miri` and `rust-src` components; without them the bundle serves the permissions view only. `npm test` finds that bundle on its own.
+For development without a package, build a development bundle from spike 002's output with `npm run dev-bundle` and set `aquascope.toolchainPath` to the folder it prints. The first run also builds the standard library that Aquascope's interpreter needs, which takes about 15 seconds and needs rustup's pinned nightly with the `miri` and `rust-src` components; without them the bundle serves the permissions view only. `npm test` finds that bundle on its own. The bundle's Aquascope binaries come from `spikes/002-toolchain-bundling/build.sh`, which builds them from `vendor/aquascope` as it is checked out, and which you rerun after changing the fork.
+
+### Working on the Aquascope fork
+
+The submodule `vendor/aquascope` is a clone of [phamquy/aquascope](https://github.com/phamquy/aquascope), checked out at the commit the extension pins, which is also the tip of the fork's integration branch `vscode-v0.4.0`. Each change to the fork goes through these steps:
+
+1. In `vendor/aquascope`, make a branch from `vscode-v0.4.0` (`git switch -c <change>`), commit, and run Aquascope's own checks there: `cargo fmt --check`, `cargo clippy -p aquascope -p aquascope_front -- -D warnings` and `cargo test -p aquascope -p aquascope_front`. The submodule is a repository of its own, so set its commit email once with `git -C vendor/aquascope config user.email <email>`.
+2. Rebuild the development bundle's binaries with `spikes/002-toolchain-bundling/build.sh` and run the extension's tests against them.
+3. Push the branch to the fork, open a pull request into `vscode-v0.4.0`, and tag the commit `v0.4.0-vscode.<n>` and push the tag.
+4. In the extension, commit `vendor/aquascope` at that commit together with `AQUASCOPE_TAG` and `AQUASCOPE_COMMIT` in `spikes/002-toolchain-bundling/pin.env`, and record the change in ADR 0004. `src/test/suite/pin.test.ts` fails if the two disagree.
 
 ## Building a package
 
@@ -28,7 +40,7 @@ On Windows (feature 012) it needs, besides those:
 
 Run `npm run package` from PowerShell or Git Bash in a checkout whose path is short; the Windows package is about 160 MB (505 MB unpacked). `npm run package -- bundle` stops after the third stage and leaves the bundle in `build/bundle`, which is enough to run the test suite against it with `AQUASCOPE_REQUIRE_TOOLCHAIN=1 AQUASCOPE_TEST_TOOLCHAIN=<repository>/build/bundle npm test`. The test stage on Windows keeps VS Code's test user-data folder under the temporary folder, because the linker's 260-character path limit fails for a build script's output in the repository's own `.vscode-test` folder. The test suite checks out its fixtures with LF line endings (`.gitattributes`), so it needs no `core.autocrlf` setting. It works through five stages and stops with a message if any fails:
 
-1. It checks that the Aquascope checkout in `build/aquascope-src` matches the pin in `spikes/002-toolchain-bundling/pin.env`. After the pin changes, delete that folder so the new tag is cloned.
+1. It checks that the submodule `vendor/aquascope` is at the commit pinned in `spikes/002-toolchain-bundling/pin.env`, with no local changes, and that the fork's tag in the pin names that commit, so that a package is never built from a fork commit that isn't pushed.
 2. It installs the pinned nightly and builds Aquascope. The pin names a fork of Aquascope with the changes ADR 0004 lists, such as keeping a function's markers when its tables cannot be worked out, and running a program with its arguments and its library.
 3. It assembles the trimmed toolchain with its licence files, and the standard library built for Miri, which Aquascope's interpreter needs.
 4. It runs the full test suite against exactly that toolchain.
