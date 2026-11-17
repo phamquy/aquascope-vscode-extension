@@ -1,4 +1,5 @@
 // Turns failed runs and build errors into the actionable messages of R10, and of feature 008 for a crate.
+import { fromToolPath } from './positions';
 import type { RunOutcome } from './runner';
 import type { AnalyzeErrorCode, CharRange } from './types';
 
@@ -39,7 +40,7 @@ export function parseCompilerErrors(stdout: string): CompilerError[] {
       const m = msg.message;
       if (msg.reason !== 'compiler-message' || m?.level !== 'error') continue;
       const span = m.spans?.find((s) => s.is_primary && s.file_name && s.line_start);
-      const place = span ? { file: span.file_name as string, line: span.line_start as number } : undefined;
+      const place = span ? { file: fromToolPath(span.file_name as string), line: span.line_start as number } : undefined;
       errors.push({ code: m.code?.code, message: m.message ?? '', rendered: m.rendered ?? m.message ?? '', ...(place ? { place } : {}) });
     } catch {
       // Not a JSON line; cargo only writes JSON here, so ignore anything else.

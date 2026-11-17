@@ -1,0 +1,2 @@
+# Fixtures are compared with LF text and carry captured Aquascope output with LF columns, so they are checked out with LF on every platform (feature 012).
+src/test/fixtures/** text eol=lf

@@ -1,5 +1,5 @@
 // Parses the tool's output and selects the body at the cursor (R7).
-import { convertColumnsToUtf16 } from './positions';
+import { convertColumnsToUtf16, fromToolPath } from './positions';
 import type { AnalysisOutput, AquascopeEntry, CharPos, CharRange } from './types';
 
 /** A VS Code position: zero-based line, column in UTF-16 code units. */
@@ -36,6 +36,10 @@ export function selectAtCursor(stdout: string, source: string, cursor: Cursor, f
   if (!Array.isArray(entries) || !entries.every(isEntry)) {
     return { kind: 'invalid', reason: 'the output is not a list of analysis results' };
   }
+  for (const e of entries) {
+    if ('Ok' in e && e.Ok.file_path) e.Ok.file_path = fromToolPath(e.Ok.file_path);
+    else if ('Err' in e && e.Err.type === 'BuildError' && e.Err.file_path) e.Err.file_path = fromToolPath(e.Err.file_path);
+  }
   if (file !== undefined) {
     entries = entries.filter((e) => {
       const named = fileOf(e);
@@ -64,8 +68,7 @@ export function selectAtCursor(stdout: string, source: string, cursor: Cursor, f
 
 /** The file a result names, if it names one (feature 008, D3). */
 function fileOf(e: AquascopeEntry): string | undefined {
-  if ('Ok' in e) return e.Ok.file_path ?? undefined;
-  return e.Err.type === 'BuildError' ? (e.Err.file_path ?? undefined) : undefined;
+  return 'Ok' in e ? (e.Ok.file_path ?? undefined) : e.Err.type === 'BuildError' ? (e.Err.file_path ?? undefined) : undefined;
 }
 
 function isEntry(e: unknown): e is AquascopeEntry {

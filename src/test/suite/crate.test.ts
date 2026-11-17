@@ -81,7 +81,7 @@ suite('feature 008 acceptance criteria, end to end', function () {
     assert.strictEqual(report.code, parseLines, "the panel shows parse's lines of config.rs");
     assert.ok(report.boundaryMarkers > 0);
     assert.match(api.recentOutput(), /crate minigrep, lib target minigrep; src\/config\.rs in /);
-    assert.match(api.recentOutput(), /aquascope --crate-of \S+\/src\/config\.rs permissions/);
+    assert.match(api.recentOutput(), /aquascope --crate-of \S+[\\/]+src[\\/]+config\.rs"? permissions/);
 
     const describe = ok(await analyzeAt(config, lineOf(config, 'let mut text'), 8));
     assert.ok(describe.steps.length > 0, 'a function without early returns also gets its steps');
@@ -133,7 +133,9 @@ suite('feature 008 acceptance criteria, end to end', function () {
     assert.strictEqual(alone.body_range.start.line, lineOf(lib, 'pub fn answer'), 'the offered action analyses the file alone');
   });
 
-  test("AC6: with no linker on PATH, a function using a workspace proc macro's output gets the linker message", async () => {
+  test("AC6: with no linker on PATH, a function using a workspace proc macro's output gets the linker message", async function () {
+    // On Windows rustc finds link.exe through Visual Studio's installation, not PATH, so a PATH cannot hide it.
+    if (process.platform === 'win32') return this.skip();
     // A fresh copy, so that no earlier run has built the macro, and a PATH without /usr/bin, where cc is.
     const tmp = mkdtempSync(path.join(os.tmpdir(), 'aquascope-proc-macro-'));
     cpSync(fixtureProject('proc-macro'), tmp, { recursive: true });
