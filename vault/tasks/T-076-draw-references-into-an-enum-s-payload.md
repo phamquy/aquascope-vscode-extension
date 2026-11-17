@@ -1,7 +1,7 @@
 ---
 id: T-076
 title: "Draw references into an enum's payload"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-17
