@@ -46,3 +46,8 @@ function utf16Column(text: string, column: number): number {
   }
   return units + (column - chars);
 }
+
+/** A file path as Aquascope or cargo names it, with `/`: they use the platform's separator, `src\lib.rs` on Windows (feature 012). */
+export function fromToolPath(file: string): string {
+  return file.split('\\').join('/');
+}

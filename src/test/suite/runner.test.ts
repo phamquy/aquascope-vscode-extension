@@ -10,6 +10,7 @@ import { runEnvironment } from '../../analysis/toolchain';
 import { requireToolchain } from './harness';
 
 const posixOnly = process.platform === 'win32' ? suite.skip : suite;
+const windowsOnly = process.platform === 'win32' ? suite : suite.skip;
 
 /** A shell script that starts a background `sleep`, prints its pid, then waits: a parent with a grandchild. */
 const PARENT_WITH_GRANDCHILD = 'sleep 30 & echo $!; wait';
@@ -129,8 +130,74 @@ posixOnly('runner (R8, R11)', () => {
   });
 });
 
+/**
+ * A node script that starts a grandchild node process, prints its pid, then waits: a parent with a
+ * grandchild on Windows, where there is no `sh` (feature 012, R7).
+ */
+const NODE_PARENT_WITH_GRANDCHILD =
+  "const c = require('child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });" +
+  'console.log(c.pid); setInterval(() => {}, 1000);';
+
+function nodeRequest(script: string, extra: Partial<RunRequest> = {}): RunRequest & { lines: string[] } {
+  const base = request('', extra);
+  // The test host is Electron; ELECTRON_RUN_AS_NODE makes the executable behave as plain node, grandchild included.
+  base.environment.env.ELECTRON_RUN_AS_NODE = '1';
+  return { ...base, program: process.execPath, args: ['-e', script] };
+}
+
+windowsOnly('runner on Windows (feature 012, R7, AC5)', () => {
+  test('kills the child and its grandchild on timeout, and a later run completes', async function () {
+    this.timeout(30_000); // node starts slowly on Windows
+    const req = nodeRequest(NODE_PARENT_WITH_GRANDCHILD, { timeoutMs: 1_500 });
+    const outcome = await run(req);
+    assert.strictEqual(outcome.kind, 'timeout');
+    assert.ok(outcome.durationMs < 8_000, `took ${outcome.durationMs} ms`);
+    const pid = Number(outcome.stdout.trim());
+    assert.ok(pid > 0, `no grandchild pid in ${JSON.stringify(outcome.stdout)}`);
+    assert.ok(await gone(pid), `grandchild ${pid} still running`);
+    assert.match(req.lines.join('\n'), /timeout of 1.5 s reached; killing process group \d+/);
+    const later = await run(nodeRequest("console.log('later')"));
+    assert.deepStrictEqual([later.kind, later.exitCode, later.stdout.trim()], ['exited', 0, 'later']);
+  });
+
+  test('kills the child and its grandchild on cancel, and a later run completes', async function () {
+    this.timeout(30_000);
+    const source = new vscode.CancellationTokenSource();
+    const req = nodeRequest(NODE_PARENT_WITH_GRANDCHILD, { timeoutMs: undefined, token: source.token });
+    const done = run(req);
+    // Node takes a moment to start on Windows; cancel once the grandchild's pid has been printed.
+    for (let i = 0; i < 100 && !req.lines.some((l) => l.startsWith('  pid ')); i++) await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 1_500));
+    source.cancel();
+    const outcome = await done;
+    source.dispose();
+    assert.strictEqual(outcome.kind, 'cancelled');
+    const pid = Number(outcome.stdout.trim());
+    assert.ok(pid > 0, `no grandchild pid in ${JSON.stringify(outcome.stdout)}`);
+    assert.ok(await gone(pid), `grandchild ${pid} still running`);
+    assert.match(req.lines.join('\n'), /cancel requested; killing process group \d+/);
+    const later = await run(nodeRequest("console.log('later')"));
+    assert.deepStrictEqual([later.kind, later.exitCode, later.stdout.trim()], ['exited', 0, 'later']);
+  });
+});
+
+/**
+ * Names of the live cargo, cargo-aquascope and aquascope-driver processes started from `bundle` on Windows,
+ * which has no process groups to ask (feature 012, R7).
+ */
+function bundleProcesses(bundle: string): string[] {
+  const prefix = path.resolve(bundle).replace(/'/g, "''") + '\\';
+  const script =
+    "Get-Process -Name cargo,cargo-aquascope,aquascope-driver -ErrorAction SilentlyContinue | " +
+    `Where-Object { $_.Path -and $_.Path.StartsWith('${prefix}', [StringComparison]::OrdinalIgnoreCase) } | ` +
+    // Get-Process fails for a name with no process, which would make the exit code 1 whatever the filter does.
+    'ForEach-Object { $_.ProcessName }; exit 0';
+  return execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+}
+
 /** Commands of the live (non-zombie) processes in process group `pgid`. */
-function groupMembers(pgid: number): string[] {
+function groupMembers(pgid: number, bundle?: string): string[] {
+  if (process.platform === 'win32') return bundleProcesses(bundle ?? '');
   const ps = execFileSync('ps', ['-axo', 'pgid=,stat=,comm='], { encoding: 'utf8' });
   return ps
     .split('\n')
@@ -152,7 +219,7 @@ async function watchAnalysis(
   const dir = writeCrate(storage, source, '2024');
   const lines: string[] = [];
   const req: RunRequest = {
-    program: path.join(bundle, 'toolchain', 'bin', 'cargo'),
+    program: path.join(bundle, 'toolchain', 'bin', process.platform === 'win32' ? 'cargo.exe' : 'cargo'),
     args: ['aquascope', 'permissions'],
     cwd: dir,
     environment: runEnvironment(bundle, dir),
@@ -168,7 +235,7 @@ async function watchAnalysis(
   while (!finished) {
     pgid ||= Number(/^ {2}pid (\d+)$/.exec(lines.find((l) => l.startsWith('  pid ')) ?? '')?.[1] ?? 0);
     if (pgid) {
-      for (const command of groupMembers(pgid)) seen.add(path.basename(command));
+      for (const command of groupMembers(pgid, bundle)) seen.add(path.basename(command));
       if (!acted && seen.has('aquascope-driver')) {
         acted = true;
         act();
@@ -180,16 +247,16 @@ async function watchAnalysis(
 }
 
 /** Polls until the group is empty, allowing the kernel a moment to reap the killed processes. */
-async function groupEmpty(pgid: number): Promise<string[]> {
-  let members = groupMembers(pgid);
+async function groupEmpty(pgid: number, bundle: string): Promise<string[]> {
+  let members = groupMembers(pgid, bundle);
   for (let i = 0; i < 10 && members.length > 0; i++) {
     await new Promise((r) => setTimeout(r, 50));
-    members = groupMembers(pgid);
+    members = groupMembers(pgid, bundle);
   }
   return members;
 }
 
-posixOnly('AC8 with the real toolchain', () => {
+suite('AC8 with the real toolchain', () => {
   test('cancelling leaves no cargo, cargo-aquascope or aquascope-driver process', async function () {
     this.timeout(60_000);
     const bundle = requireToolchain(this);
@@ -199,7 +266,33 @@ posixOnly('AC8 with the real toolchain', () => {
     rmSync(storage, { recursive: true, force: true });
     assert.strictEqual(outcome.kind, 'cancelled');
     for (const name of ['cargo', 'cargo-aquascope', 'aquascope-driver']) assert.ok(seen.has(name), `${name} never seen in the group: ${[...seen].join(', ')}`);
-    assert.deepStrictEqual(await groupEmpty(pgid), []);
+    assert.deepStrictEqual(await groupEmpty(pgid, bundle), []);
+  });
+
+  test('a run after a cancel completes (feature 012, AC5)', async function () {
+    this.timeout(90_000);
+    const bundle = requireToolchain(this);
+    const token = new vscode.CancellationTokenSource();
+    const first = await watchAnalysis(bundle, { token: token.token }, () => token.cancel());
+    token.dispose();
+    rmSync(first.storage, { recursive: true, force: true });
+    assert.strictEqual(first.outcome.kind, 'cancelled');
+    const storage = mkdtempSync(path.join(os.tmpdir(), 'aquascope-after-'));
+    try {
+      const dir = writeCrate(storage, 'pub fn f(v: &mut Vec<i32>) -> usize { let a = &v[0]; let _ = *a; v.push(1); v.len() }', '2024');
+      const outcome = await run({
+        program: path.join(bundle, 'toolchain', 'bin', process.platform === 'win32' ? 'cargo.exe' : 'cargo'),
+        args: ['aquascope', 'permissions'],
+        cwd: dir,
+        environment: runEnvironment(bundle, dir),
+        timeoutMs: 60_000,
+        log: () => undefined,
+      });
+      assert.deepStrictEqual([outcome.kind, outcome.exitCode], ['exited', 0], outcome.stderr);
+      assert.ok(outcome.stdout.includes('"Ok"'), outcome.stdout.slice(0, 200));
+    } finally {
+      rmSync(storage, { recursive: true, force: true });
+    }
   });
 
   test('a timeout leaves no cargo, cargo-aquascope or aquascope-driver process', async function () {
@@ -209,6 +302,6 @@ posixOnly('AC8 with the real toolchain', () => {
     rmSync(storage, { recursive: true, force: true });
     assert.strictEqual(outcome.kind, 'timeout');
     assert.ok(seen.has('aquascope-driver'), `the driver was not running before the timeout: ${[...seen].join(', ')}`);
-    assert.deepStrictEqual(await groupEmpty(pgid), []);
+    assert.deepStrictEqual(await groupEmpty(pgid, bundle), []);
   });
 });

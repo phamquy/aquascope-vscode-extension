@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { existsSync } from 'fs';
+import * as os from 'os';
 import { runTests } from '@vscode/test-electron';
 
 async function main(): Promise<void> {
@@ -19,7 +20,9 @@ async function main(): Promise<void> {
   await runTests({
     extensionDevelopmentPath: repo,
     extensionTestsPath,
-    launchArgs: [workspace, '--disable-extensions'],
+    // On Windows cargo's build-script paths under the default user-data folder in the repository pass link.exe's
+    // 260-character limit, so the test instance keeps its storage at a short path (feature 012).
+    launchArgs: [workspace, '--disable-extensions', ...(process.platform === 'win32' ? ['--user-data-dir', path.join(os.tmpdir(), 'aq-vscode-ud')] : [])],
     extensionTestsEnv: existsSync(bundle) ? { AQUASCOPE_TEST_TOOLCHAIN: bundle } : {},
   });
 }

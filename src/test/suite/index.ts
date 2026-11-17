@@ -3,7 +3,7 @@ import Mocha from 'mocha';
 import { readdirSync } from 'fs';
 
 export async function run(): Promise<void> {
-  const mocha = new Mocha({ ui: 'tdd', color: true });
+  const mocha = new Mocha({ ui: 'tdd', color: true, grep: process.env.AQUASCOPE_TEST_GREP });
   const root = __dirname;
   // readdirSync with `recursive` works on Node 20, which older VS Code versions ship; fs.glob needs Node 22.
   for (const f of readdirSync(root, { recursive: true, encoding: 'utf8' })) {

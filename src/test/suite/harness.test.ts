@@ -29,7 +29,8 @@ suite('test harness', () => {
   test('finds a toolchain bundle in the R3 layout', function () {
     const root = requireToolchain(this);
     for (const file of ['bin/cargo-aquascope', 'bin/aquascope-driver', 'toolchain/bin/cargo', 'toolchain/bin/rustc']) {
-      assert.ok(existsSync(path.join(root, file)), `${file} missing under ${root}`);
+      const exe = process.platform === 'win32' ? `${file}.exe` : file;
+      assert.ok(existsSync(path.join(root, exe)), `${file} missing under ${root}`);
     }
   });
 });

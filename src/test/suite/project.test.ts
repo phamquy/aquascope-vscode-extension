@@ -36,7 +36,7 @@ suite('finding the crate of a file (feature 008, R1, R10)', () => {
       target: { name: 'minigrep', kind: 'lib' },
       relativePath: 'src/config.rs',
       externalPathDependencies: [],
-      copyRoot: '/copies/minigrep',
+      copyRoot: path.resolve('/copies/minigrep'),
       copyFolders: ['.'],
       binaries: [{ name: 'minigrep', rootFile: 'src/main.rs' }],
       libraryRoot: 'src/lib.rs',
@@ -67,7 +67,7 @@ suite('finding the crate of a file (feature 008, R1, R10)', () => {
     const found = crate(locateInMetadata(metadata('workspace'), '/copies/workspace/app/src/lib.rs'));
     assert.strictEqual(found.packageName, 'ws-app');
     assert.strictEqual(found.relativePath, 'app/src/lib.rs');
-    assert.deepStrictEqual([found.externalPathDependencies, found.copyRoot, found.copyFolders], [[], '/copies/workspace', ['.']]);
+    assert.deepStrictEqual([found.externalPathDependencies, found.copyRoot, found.copyFolders], [[], path.resolve('/copies/workspace'), ['.']]);
     assert.strictEqual(crate(locateInMetadata(metadata('workspace'), '/copies/workspace/core/src/lib.rs')).packageName, 'ws-core');
     assert.strictEqual(crate(locateInMetadata(metadata('proc-macro'), '/copies/proc-macro/app/src/lib.rs')).target.kind, 'lib');
   });
@@ -77,7 +77,7 @@ suite('finding the crate of a file (feature 008, R1, R10)', () => {
     assert.strictEqual(found.workspaceRoot, '/copies/external-path/app');
     assert.strictEqual(found.relativePath, 'src/lib.rs');
     assert.deepStrictEqual(found.externalPathDependencies, ['/copies/external-path/shared']);
-    assert.strictEqual(found.copyRoot, '/copies/external-path');
+    assert.strictEqual(found.copyRoot, path.resolve('/copies/external-path'));
     assert.deepStrictEqual(found.copyFolders, ['app', 'shared']);
   });
 
