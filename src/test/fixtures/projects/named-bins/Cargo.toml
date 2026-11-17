@@ -1,0 +1,8 @@
+# Binaries named differently from their package and no library, as in rustlings: a binary given as an
+# entry of `bin` with a path of its own, and one found in src/bin/ (T-072, issue #81).
+bin = [{ name = "string-kinds", path = "exercises/string_kinds.rs" }]
+
+[package]
+name = "named-bins"
+version = "0.1.0"
+edition = "2024"

@@ -1,6 +1,7 @@
 // Feature 008 end to end: a function analysed with the rest of its crate, against the development bundle,
 // seen through the command's result, the panel's report and the output channel, one test per automated
-// criterion: AC1 to AC6 and AC8 to AC10, and R8. AC7 is feature 003's suites, unchanged.
+// criterion: AC1 to AC6 and AC8 to AC10, and R8. AC7 is feature 003's suites, unchanged. T-072 added R10's
+// binaries named differently from their package.
 import * as assert from 'assert';
 import { cpSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import * as os from 'os';
@@ -165,6 +166,20 @@ suite('feature 008 acceptance criteria, end to end', function () {
     assert.match(result.message, /cannot analyse a build script/);
     assert.strictEqual(result.offersFileAlone, true);
     ok(await analyzeAlone(build));
+  });
+
+  test('R10: functions of binaries named differently from their package are analysed, as in rustlings and src/bin/ (T-072, #81)', async () => {
+    const tool = fixtureProject('named-bins', 'src', 'bin', 'tool.rs');
+    const pushTwice = ok(await analyzeAt(tool, lineOf(tool, 'v.push(n);'), 8));
+    assert.strictEqual(pushTwice.file_path, 'src/bin/tool.rs');
+    assert.strictEqual(pushTwice.body_range.start.line, lineOf(tool, 'fn push_twice'));
+    assert.ok(pushTwice.boundaries.length > 0, 'expected permission markers');
+    assert.match(api.recentOutput(), /crate named-bins, bin target tool; src\/bin\/tool\.rs in /);
+
+    const exercise = fixtureProject('named-bins', 'exercises', 'string_kinds.rs');
+    const main = ok(await analyzeAt(exercise, lineOf(exercise, 'string("red"'), 8));
+    assert.strictEqual(main.file_path, 'exercises/string_kinds.rs');
+    assert.strictEqual(main.body_range.start.line, lineOf(exercise, 'fn main'));
   });
 
   test("R8: a function that fails to build is explained with the compile errors' files and lines; other files still work", async () => {
