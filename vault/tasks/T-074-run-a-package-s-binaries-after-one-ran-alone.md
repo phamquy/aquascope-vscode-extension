@@ -1,7 +1,7 @@
 ---
 id: T-074
 title: "Run a package's binaries after one ran alone"
-status: review
+status: done
 priority: medium
 feature: "009-whole-crate-stack-heap"
 created: 2026-11-17
