@@ -7,8 +7,11 @@ import { TOOLCHAIN_SETTING, resolveMiriSysroot, resolveToolchain, runEnvironment
 import { requireToolchain } from './harness';
 
 /** Creates the R3 layout under `root`. */
+/** The executables' suffix on this platform. */
+const EXE = process.platform === 'win32' ? '.exe' : '';
+
 function makeLayout(root: string): void {
-  for (const file of ['bin/cargo-aquascope', 'bin/aquascope-driver', 'toolchain/bin/cargo']) {
+  for (const file of ['bin/cargo-aquascope', 'bin/aquascope-driver', 'toolchain/bin/cargo'].map((f) => f + EXE)) {
     mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     writeFileSync(path.join(root, file), '');
   }
@@ -23,7 +26,7 @@ suite('toolchain resolution (R3)', () => {
     const root = path.join(tmp, 'custom');
     makeLayout(root);
     const r = resolveToolchain(`  ${root} `, path.join(tmp, 'ext'));
-    assert.deepStrictEqual(r, { ok: true, root, cargo: path.join(root, 'toolchain', 'bin', 'cargo') });
+    assert.deepStrictEqual(r, { ok: true, root, cargo: path.join(root, 'toolchain', 'bin', 'cargo' + EXE) });
   });
 
   test('uses the bundle inside the extension when the setting is empty', () => {
@@ -47,7 +50,7 @@ suite('toolchain resolution (R3)', () => {
   test('names the missing files of an incomplete layout', () => {
     const root = path.join(tmp, 'partial');
     makeLayout(root);
-    rmSync(path.join(root, 'bin', 'aquascope-driver'));
+    rmSync(path.join(root, 'bin', 'aquascope-driver' + EXE));
     const r = resolveToolchain(root, path.join(tmp, 'ext'));
     assert.ok(!r.ok && r.message.includes('(missing bin/aquascope-driver)'), JSON.stringify(r));
   });

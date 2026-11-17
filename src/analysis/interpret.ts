@@ -11,6 +11,7 @@ import * as path from 'path';
 import type * as vscode from 'vscode';
 import { classifyBuildErrors, CompilerError, crateBuildFailure, Failure, parseCompilerErrors, programCompileErrors, programStopped, runFailure } from './errors';
 import type { CrateInProject, PackageBinary } from './project';
+import { fromToolPath } from './positions';
 import { inCopy, syncProject, type UnsavedEditor } from './projectCopy';
 import { outputChannel, run, type ReportProgress, type RunOutcome } from './runner';
 import { detectEdition, writeCrate } from './scratchCrate';
@@ -45,7 +46,11 @@ export function parseInterpreterOutput(stdout: string): ParsedOutput {
     return { kind: 'invalid', reason: stdout.trim() ? 'not JSON' : 'no output' };
   }
   const out = value as Partial<InterpreterOutput> | null;
-  if (out && typeof out === 'object' && 'Ok' in out && Array.isArray(out.Ok?.steps)) return { kind: 'trace', trace: out.Ok };
+  if (out && typeof out === 'object' && 'Ok' in out && Array.isArray(out.Ok?.steps)) {
+    // The frames name their files with the platform's separator (feature 012).
+    for (const step of out.Ok.steps) for (const frame of step.stack?.frames ?? []) if (frame.file_path) frame.file_path = fromToolPath(frame.file_path);
+    return { kind: 'trace', trace: out.Ok };
+  }
   if (out && typeof out === 'object' && 'Err' in out) return { kind: 'failed' };
   return { kind: 'invalid', reason: 'not an interpreter result' };
 }
