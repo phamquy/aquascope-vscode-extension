@@ -20,9 +20,11 @@ async function main(): Promise<void> {
   await runTests({
     extensionDevelopmentPath: repo,
     extensionTestsPath,
-    // On Windows cargo's build-script paths under the default user-data folder in the repository pass link.exe's
-    // 260-character limit, so the test instance keeps its storage at a short path (feature 012).
-    launchArgs: [workspace, '--disable-extensions', ...(process.platform === 'win32' ? ['--user-data-dir', path.join(os.tmpdir(), 'aq-vscode-ud')] : [])],
+    // The test instance keeps its storage at a short path instead of the default user-data folder in the
+    // repository. On Windows cargo's build-script paths there pass link.exe's 260-character limit (feature 012),
+    // and on macOS, in a checkout as deep as a CI runner's, VS Code's IPC socket there passes the 103-character
+    // limit on socket paths and VS Code does not start.
+    launchArgs: [workspace, '--disable-extensions', '--user-data-dir', path.join(os.tmpdir(), 'aq-vscode-ud')],
     extensionTestsEnv: existsSync(bundle) ? { AQUASCOPE_TEST_TOOLCHAIN: bundle } : {},
   });
 }
