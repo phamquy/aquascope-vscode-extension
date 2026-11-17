@@ -28,6 +28,7 @@ A VS Code extension, built spec-first with AI assistance. Everything needed to w
 - `src/` extension source; `src/test/suite/` integration tests
 - `specs/` spec-driven artifacts; `docs/adr/` decisions
 - `vault/` Obsidian task vault; `.claude/` agents and slash commands
+- `vendor/aquascope` the Aquascope fork, a git submodule at the pinned commit (ADR 0005); DEVELOPMENT.md describes changing it
 
 ## Rules
 

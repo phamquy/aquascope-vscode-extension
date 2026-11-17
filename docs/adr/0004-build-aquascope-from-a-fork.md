@@ -30,7 +30,7 @@ Alternatives considered:
 - Functions that return early and then branch again are now drawn with their permission markers but without the per-line tables. The panel does not say why the tables are missing; the README describes the limit.
 - The binaries come from the owner's fork, not from upstream. The licence is unchanged (MIT), and the fork is upstream v0.4.0 plus one public commit.
 - Every Aquascope upgrade means rebasing the commit onto the new release and tagging it in the fork, unless the release already includes the fix.
-- Changing the pin means deleting `build/aquascope-src` so the packaging script clones the new tag, and moving spike 002's checkout to the new tag before rebuilding the development bundle.
+- Changing the pin means deleting `build/aquascope-src` so the packaging script clones the new tag, and moving spike 002's checkout to the new tag before rebuilding the development bundle. Since ADR 0005, the fork is the submodule `vendor/aquascope`, and changing the pin means committing the submodule at the new commit with the new tag and commit in `pin.env`.
 - The captured fixture output in `src/test/fixtures/data/` stays valid. Appendix A compares the two versions.
 
 ## Revised 2026-11-09: three changes, tag `v0.4.0-vscode.2`

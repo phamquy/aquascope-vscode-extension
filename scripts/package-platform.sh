@@ -14,13 +14,14 @@
 # built in a temporary folder under /tmp that is removed afterwards; the bundle sits at aquascope/ in the
 # repository root only while vsce runs. Needs rustup, git, Node and npm, a C linker (the Xcode Command Line
 # Tools, or Visual Studio 2022's C++ build tools on Windows), and the network while building. The pin is spikes/002-toolchain-bundling/pin.env; AQUASCOPE_PIN may
-# name another file, for checking the script.
+# name another file, for checking the script. Aquascope is built from the submodule vendor/aquascope (ADR 0005), at the
+# pinned commit with no local changes.
 set -euo pipefail
 # pwd -W gives the C:/ form under Git Bash; elsewhere it fails and pwd's own answer is used.
 root="$(cd "$(dirname "$0")/.." && { pwd -W 2> /dev/null || pwd; })"
 pin="${AQUASCOPE_PIN:-$root/spikes/002-toolchain-bundling/pin.env}"
 build="$root/build"
-src="$build/aquascope-src"
+src="$root/vendor/aquascope"
 install="$build/install"
 bundle="$build/bundle"
 staged="$root/aquascope"
@@ -61,13 +62,26 @@ check() {
   fi
   # shellcheck source=../spikes/002-toolchain-bundling/pin.env
   source "$pin"
-  if [ ! -d "$src/.git" ]; then
-    git clone --quiet --depth 1 --branch "$AQUASCOPE_TAG" "$AQUASCOPE_REPO" "$src"
+  # A clone made without --recursive has the submodule's folder but not its checkout.
+  if [ ! -e "$src/.git" ]; then
+    git -C "$root" submodule update --init vendor/aquascope || fail "could not check out the submodule vendor/aquascope"
   fi
-  local commit channel
+  local commit recorded tagged channel
   commit="$(git -C "$src" rev-parse HEAD)"
+  recorded="$(git -C "$root" ls-files -s vendor/aquascope | cut -d' ' -f2)"
+  if [ "$recorded" != "$AQUASCOPE_COMMIT" ]; then
+    fail "the repository records vendor/aquascope at $recorded, but the pin names $AQUASCOPE_COMMIT ($AQUASCOPE_TAG); make them the same commit"
+  fi
   if [ "$commit" != "$AQUASCOPE_COMMIT" ]; then
-    fail "the Aquascope checkout in build/aquascope-src is at $commit, but the pin names $AQUASCOPE_COMMIT ($AQUASCOPE_TAG); after changing the pin, delete build/aquascope-src to clone it again"
+    fail "vendor/aquascope is checked out at $commit, but the pin names $AQUASCOPE_COMMIT ($AQUASCOPE_TAG); run git submodule update vendor/aquascope"
+  fi
+  if [ -n "$(git -C "$src" status --porcelain --untracked-files=no)" ]; then
+    fail "vendor/aquascope has uncommitted changes; a package is built from the pinned commit alone"
+  fi
+  # The fork's tag must name the pinned commit, so that no package is built from a commit the fork does not have.
+  tagged="$(git ls-remote "$AQUASCOPE_REPO" "refs/tags/$AQUASCOPE_TAG" "refs/tags/$AQUASCOPE_TAG^{}" | sort -k2 | tail -n 1 | cut -f1)"
+  if [ "$tagged" != "$AQUASCOPE_COMMIT" ]; then
+    fail "the fork's tag $AQUASCOPE_TAG names ${tagged:-no commit}, not the pinned $AQUASCOPE_COMMIT; push the commit and tag it before packaging"
   fi
   channel="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' "$src/rust-toolchain.toml")"
   if [ "$channel" != "$RUST_NIGHTLY" ]; then

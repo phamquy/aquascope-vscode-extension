@@ -6,7 +6,7 @@ Scripts and fixtures that reproduce the spike in [specs/features/002-toolchain-b
 
 Run in this order from the repository root:
 
-1. `./spikes/002-toolchain-bundling/build.sh` builds `cargo-aquascope` and `aquascope-driver` into `work/install/bin` (log in `work/build.log`).
+1. `./spikes/002-toolchain-bundling/build.sh` builds `cargo-aquascope` and `aquascope-driver` into `work/install/bin` (log in `work/build.log`), from the fork as checked out in the submodule `vendor/aquascope` (ADR 0005).
 2. `./spikes/002-toolchain-bundling/run.sh baseline` runs every fixture with the full rustup toolchain.
 3. `./spikes/002-toolchain-bundling/assemble-toolchain.sh` copies the rustc, cargo and rust-std components into `work/toolchain-minimal`.
 4. `./spikes/002-toolchain-bundling/run.sh minimal` then `./spikes/002-toolchain-bundling/compare.sh` runs the fixtures in a scrubbed environment and compares them with the baseline.

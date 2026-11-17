@@ -10,7 +10,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=../spikes/002-toolchain-bundling/pin.env
 source "$root/spikes/002-toolchain-bundling/pin.env"
-src="${1:-$root/spikes/002-toolchain-bundling/work/src/aquascope}"
+src="${1:-$root/vendor/aquascope}"
 out="$root/src/analysis/bindings"
 
 commit="$(git -C "$src" rev-parse HEAD)"
