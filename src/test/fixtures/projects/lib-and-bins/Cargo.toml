@@ -1,0 +1,6 @@
+# A library with two binaries (issue #85): src/main.rs runs as one crate with the library, while src/bin/tool.rs
+# names its own module with a `crate::` path, so it cannot and runs alone.
+[package]
+name = "lib-and-bins"
+version = "0.1.0"
+edition = "2024"
