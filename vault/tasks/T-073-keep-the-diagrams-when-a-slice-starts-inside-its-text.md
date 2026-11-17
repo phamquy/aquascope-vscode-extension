@@ -1,7 +1,7 @@
 ---
 id: T-073
 title: "Keep the diagrams when a slice starts inside its text"
-status: review
+status: done
 priority: medium
 feature: "007-stack-heap-diagrams"
 created: 2026-11-17
