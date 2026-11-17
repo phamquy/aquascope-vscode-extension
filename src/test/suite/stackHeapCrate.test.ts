@@ -32,7 +32,11 @@ function traced(result: StackHeapResult): Extract<StackHeapResult, { kind: 'ok' 
 }
 
 suite('feature 009 acceptance criteria, end to end', function () {
-  this.timeout(120_000); // the first run on a project builds it for the interpreter
+  // The first run on a project builds it for the interpreter. Later runs of minigrep take 10 to 30 s here, but
+  // over 60 s, the default analysis limit, on GitHub's macOS runner, so the suite raises the limit: these tests
+  // check what a run draws, not how fast it is.
+  this.timeout(360_000);
+  const ANALYSIS_LIMIT_SECONDS = 300;
   let api: AquascopeApi;
   let projectsBefore: Record<string, string>;
   const minigrep = (...parts: string[]) => fixtureProject('minigrep-book', ...parts);
@@ -50,6 +54,7 @@ suite('feature 009 acceptance criteria, end to end', function () {
     const bundle = requireMiri(this);
     projectsBefore = folderSnapshot(fixtureProject());
     await vscode.workspace.getConfiguration('aquascope').update('toolchainPath', bundle, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('aquascope').update('analysisTimeoutSeconds', ANALYSIS_LIMIT_SECONDS, vscode.ConfigurationTarget.Global);
     const ext = vscode.extensions.getExtension<AquascopeApi>(EXTENSION_ID);
     assert.ok(ext);
     api = await ext.activate();
@@ -57,6 +62,7 @@ suite('feature 009 acceptance criteria, end to end', function () {
   setup(() => vscode.commands.executeCommand('workbench.action.closeAllEditors'));
   suiteTeardown(async () => {
     await vscode.workspace.getConfiguration('aquascope').update('toolchainPath', undefined, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('aquascope').update('analysisTimeoutSeconds', undefined, vscode.ConfigurationTarget.Global);
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 
