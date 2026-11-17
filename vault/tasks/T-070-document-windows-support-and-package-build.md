@@ -1,7 +1,7 @@
 ---
 id: T-070
 title: "Document Windows support and package build"
-status: review
+status: done
 priority: medium
 feature: "012-windows-support"
 created: 2026-11-16
