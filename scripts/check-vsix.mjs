@@ -16,7 +16,7 @@
 // variables let the tests use a small synthetic package: AQUASCOPE_CHECK_SYSROOT names a folder holding
 // lib/rustlib/manifest-* in place of the rustup toolchain's, and AQUASCOPE_CHECK_MAX_MB replaces the size cap.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -166,14 +166,21 @@ const bytes = statSync(vsix).size;
 check(bytes <= MAX_BYTES, `the VSIX is ${(bytes / 1048576).toFixed(1)} MB, over ${MAX_MB} MB`);
 
 // R10, AC8: no file holds the build machine's home path, which rustc records in source paths. On Windows
-// it is recorded with backslashes, possibly doubled in escaped text, or with slashes.
+// it is recorded with backslashes, possibly doubled in escaped text, or with slashes. A toolchain file
+// identical to the rustup toolchain's own copy is Rust's published build, which nothing on this machine
+// wrote, so it is not counted: Rust builds its macOS releases on GitHub's runners, whose home folder,
+// `/Users/runner`, its binaries record, and which is also the home folder of a package built on those runners.
 const home = os.homedir();
 const homes = [...new Set([home, home.replaceAll('\\', '/'), home.replaceAll('\\', '\\\\')])].map((h) => Buffer.from(h));
+const asPublished = (entry, data) => {
+  const upstream = path.join(sysroot, entry.slice(TOOLCHAIN.length));
+  return entry.startsWith(TOOLCHAIN) && existsSync(upstream) && readFileSync(upstream).equals(data);
+};
 const withHome = [];
 for (const entry of names) {
   if (entry.endsWith('/')) continue;
   const data = read(entry);
-  if (homes.some((h) => data.includes(h))) withHome.push(entry);
+  if (homes.some((h) => data.includes(h)) && !asPublished(entry, data)) withHome.push(entry);
 }
 check(withHome.length === 0, `${withHome.length} file(s) hold the home path ${home}: ${withHome.slice(0, 5).join(', ')}${withHome.length > 5 ? ', …' : ''}`);
 

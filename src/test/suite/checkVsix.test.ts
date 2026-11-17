@@ -187,6 +187,23 @@ suite('VSIX check (feature 012, T-068)', () => {
     }
   });
 
+  test("accepts the home path in a toolchain file identical to rustup's copy, but not in one that differs", () => {
+    // Rust's macOS releases are built on GitHub's runners and record /Users/runner, which is also the home
+    // folder of a package built there.
+    const published = Buffer.from(`built in ${os.homedir()}/work/rust`);
+    mkdirSync(path.join(tmp, 'sysroot', 'bin'), { recursive: true });
+    writeFileSync(path.join(tmp, 'sysroot', 'bin', 'rustc.exe'), published);
+    const files = validFiles();
+    files.set('extension/aquascope/toolchain/bin/rustc.exe', published);
+    const r = run(files);
+    assert.strictEqual(r.status, 0, r.out);
+
+    files.set('extension/aquascope/toolchain/bin/rustc.exe', Buffer.concat([published, Buffer.from(' changed')]));
+    const changed = run(files);
+    assert.strictEqual(changed.status, 1, changed.out);
+    assert.match(changed.out, /1 file\(s\) hold the home path .*toolchain\/bin\/rustc\.exe/);
+  });
+
   test('rejects crate notices that differ from the bundle\'s', () => {
     const files = validFiles();
     files.set('extension/aquascope/THIRD-PARTY-NOTICES', Buffer.from('stale'));
